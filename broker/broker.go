@@ -29,13 +29,12 @@ func (b *Broker) Subscribe(topic string, ch chan transport.Message) {
 	b.subs[topic][ch] = struct{}{}
 }
 
-func (b *Broker) Publish(topic string, payload []byte, sender string) {
-	slog.Debug("Publishing message", "topic", topic, "payload", payload, "sender", sender)
+func (b *Broker) Publish(msg transport.Message) {
+	slog.Debug("Publishing message", "message", msg)
 	b.mu.RLock()
 	defer b.mu.RUnlock()
 
-	msg := transport.Message{Topic: topic, Payload: payload, Sender: sender}
-	for ch := range b.subs[topic] {
+	for ch := range b.subs[msg.Topic] {
 		select {
 		case ch <- msg:
 		default:

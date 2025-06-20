@@ -1,6 +1,7 @@
 package transport
 
 import (
+	"bufio"
 	"encoding/json"
 	"log/slog"
 	"net"
@@ -54,17 +55,18 @@ func (t *TCPTransport) handleConnection(c net.Conn) {
 		c.Close()
 	}()
 
-	defer c.Close()
+	reader := bufio.NewScanner(c)
 
-	decoder := json.NewDecoder(c)
-
-	for {
+	for reader.Scan() {
+		line := reader.Bytes()
 		var msg Message
-		err := decoder.Decode(&msg)
-		if err != nil {
-			slog.Warn("There was an error decoding message", "addr", id)
+		if err := json.Unmarshal(line, &msg); err != nil {
+			slog.Warn("Invalid JSON message", "addr", id, "error", err, "data", string(line))
+			continue
 		}
-		t.onMessage(msg)
+		if t.onMessage != nil {
+			t.onMessage(msg)
+		}
 	}
 }
 

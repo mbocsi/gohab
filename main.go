@@ -48,9 +48,7 @@ func main() {
 	broker := broker.NewBroker()
 
 	tcpServer := transport.NewTCPTransport("0.0.0.0:8080")
-	tcpServer.OnMessage(func(msg transport.Message) {
-		broker.Publish(msg.Topic, msg.Payload, msg.Sender)
-	})
+	tcpServer.OnMessage(broker.Publish)
 
 	mcpServer := mcp.NewMCPServer()
 
