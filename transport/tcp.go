@@ -7,13 +7,15 @@ import (
 )
 
 type TCPTransport struct {
-	Addr      string
-	listener  net.Listener
-	onMessage func(Message)
+	Addr         string
+	listener     net.Listener
+	onMessage    func(Message)
+	onConnect    func(Client)
+	onDisconnect func(Client)
 }
 
 func NewTCPTransport(addr string) *TCPTransport {
-	return &TCPTransport{Addr: addr, listener: nil}
+	return &TCPTransport{Addr: addr}
 }
 
 func (t *TCPTransport) Start() error {
@@ -36,25 +38,34 @@ func (t *TCPTransport) Start() error {
 }
 
 func (t *TCPTransport) handleConnection(c net.Conn) {
-	slog.Info("Device connected: %s", "addr", c.RemoteAddr().String())
+	id := c.RemoteAddr().String()
+	slog.Info("Device connected", "addr", id)
 
-	buf := make([]byte, 4096)
-	msg := Message{}
+	client := NewTCPClient(id, c)
+	if t.onConnect != nil {
+		t.onConnect(client)
+	}
+
+	defer func() {
+		if t.onDisconnect != nil {
+			t.onDisconnect(client)
+		}
+		slog.Info("Device disconnected", "addr", id)
+		c.Close()
+	}()
+
 	defer c.Close()
 
+	decoder := json.NewDecoder(c)
+
 	for {
-		n, err := c.Read(buf)
+		var msg Message
+		err := decoder.Decode(&msg)
 		if err != nil {
-			break
-		}
-		err = json.Unmarshal(buf[:n], &msg)
-		if err != nil {
-			slog.Warn("TCP message malformed", "error", err.Error())
-			continue
+			slog.Warn("There was an error decoding message", "addr", id)
 		}
 		t.onMessage(msg)
 	}
-	slog.Info("Device disconnected: %s", "addr", c.RemoteAddr().String())
 }
 
 func (t *TCPTransport) Shutdown() error {
@@ -65,6 +76,14 @@ func (t *TCPTransport) Shutdown() error {
 	return nil
 }
 
-func (t *TCPTransport) OnMessage(handler func(Message)) {
-	t.onMessage = handler
+func (t *TCPTransport) OnMessage(fn func(Message)) {
+	t.onMessage = fn
+}
+
+func (t *TCPTransport) OnConnect(fn func(Client)) {
+	t.onConnect = fn
+}
+
+func (t *TCPTransport) OnDisconnect(fn func(Client)) {
+	t.onDisconnect = fn
 }

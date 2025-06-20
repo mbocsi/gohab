@@ -11,3 +11,7 @@ type Transport interface {
 	OnMessage(func(Message))
 	Shutdown() error
 }
+
+type Client interface {
+	Send(Message) error
+}
