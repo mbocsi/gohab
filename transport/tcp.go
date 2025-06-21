@@ -5,13 +5,14 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net"
+	"time"
 )
 
 type TCPTransport struct {
 	Addr         string
 	listener     net.Listener
 	onMessage    func(Message)
-	onConnect    func(Client)
+	onConnect    func(Client) error
 	onDisconnect func(Client)
 }
 
@@ -20,7 +21,7 @@ func NewTCPTransport(addr string) *TCPTransport {
 }
 
 func (t *TCPTransport) Start() error {
-	slog.Debug("Starting tcp server", "addr", t.Addr)
+	slog.Info("Starting tcp server", "addr", t.Addr)
 
 	l, err := net.Listen("tcp", t.Addr)
 	if err != nil {
@@ -42,10 +43,7 @@ func (t *TCPTransport) handleConnection(c net.Conn) {
 	id := c.RemoteAddr().String()
 	slog.Info("Device connected", "addr", id)
 
-	client := NewTCPClient(id, c)
-	if t.onConnect != nil {
-		t.onConnect(client)
-	}
+	client := NewTCPClient(c, DeviceMetadata{Id: id})
 
 	defer func() {
 		if t.onDisconnect != nil {
@@ -57,6 +55,45 @@ func (t *TCPTransport) handleConnection(c net.Conn) {
 
 	reader := bufio.NewScanner(c)
 
+	// Identify device
+	for reader.Scan() {
+		line := reader.Bytes()
+		var msg Message
+		if err := json.Unmarshal(line, &msg); err != nil {
+			slog.Warn("Invalid JSON message", "addr", id, "error", err.Error(), "data", string(line))
+			continue
+		}
+		if msg.Type != "identify" {
+			slog.Warn("Received a message other than identify", "addr", id, "data", string(line))
+			continue
+		}
+		if t.onConnect == nil {
+			panic("TCPClient onConnect callback must be defined")
+		}
+
+		var idPayload IdentifyPayload
+		if err := json.Unmarshal(msg.Payload, &idPayload); err != nil {
+			slog.Warn("Invalid JSON identify payload", "addr", id, "error", err.Error(), "data", string(line))
+			continue
+		}
+
+		client.DeviceMetadata = DeviceMetadata{Name: idPayload.ProposedName,
+			LastSeen:     time.Now(),
+			Firmware:     idPayload.Firmware,
+			Capabilities: idPayload.Capabilities}
+
+		err := t.onConnect(client)
+		if err != nil {
+			slog.Warn("Failed to register device identity", "addr", id, "error", err.Error(), "data", string(line))
+		} else {
+			// identity register success
+			break
+		}
+	}
+
+	slog.Info("Identified client", "addr", id, "id", client.Id)
+
+	// Read messages from device
 	for reader.Scan() {
 		line := reader.Bytes()
 		var msg Message
@@ -64,8 +101,12 @@ func (t *TCPTransport) handleConnection(c net.Conn) {
 			slog.Warn("Invalid JSON message", "addr", id, "error", err, "data", string(line))
 			continue
 		}
+		// Inject client ID into message
+		msg.Sender = client.Id
 		if t.onMessage != nil {
 			t.onMessage(msg)
+		} else {
+			panic("TCPClient onMessage callback must be defined")
 		}
 	}
 }
@@ -82,7 +123,7 @@ func (t *TCPTransport) OnMessage(fn func(Message)) {
 	t.onMessage = fn
 }
 
-func (t *TCPTransport) OnConnect(fn func(Client)) {
+func (t *TCPTransport) OnConnect(fn func(Client) error) {
 	t.onConnect = fn
 }
 

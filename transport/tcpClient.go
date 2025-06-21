@@ -6,12 +6,12 @@ import (
 )
 
 type TCPClient struct {
-	Id   string
+	DeviceMetadata
 	conn net.Conn
 }
 
-func NewTCPClient(id string, conn net.Conn) *TCPClient {
-	return &TCPClient{Id: id, conn: conn}
+func NewTCPClient(conn net.Conn, meta DeviceMetadata) *TCPClient {
+	return &TCPClient{conn: conn, DeviceMetadata: meta}
 }
 
 func (c *TCPClient) Send(msg Message) error {
@@ -21,4 +21,8 @@ func (c *TCPClient) Send(msg Message) error {
 	}
 	_, err = c.conn.Write(jsonData)
 	return err
+}
+
+func (c *TCPClient) Meta() *DeviceMetadata {
+	return &c.DeviceMetadata
 }
