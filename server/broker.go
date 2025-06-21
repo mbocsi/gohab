@@ -1,35 +1,35 @@
-package broker
+package server
 
 import (
 	"log/slog"
 	"sync"
 
-	"github.com/mbocsi/gohab/transport"
+	"github.com/mbocsi/gohab/proto"
 )
 
 type Broker struct {
 	mu   sync.RWMutex
-	subs map[string]map[transport.Client]struct{} // Map topic to hashset of Clients
+	subs map[string]map[Client]struct{} // Map topic to hashset of Clients
 }
 
 func NewBroker() *Broker {
 	return &Broker{
-		subs: make(map[string]map[transport.Client]struct{}),
+		subs: make(map[string]map[Client]struct{}),
 	}
 }
 
-func (b *Broker) Subscribe(topic string, client transport.Client) {
+func (b *Broker) Subscribe(topic string, client Client) {
 	slog.Debug("Subscribing", "topic", topic, "client", client)
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
 	if b.subs[topic] == nil {
-		b.subs[topic] = make(map[transport.Client]struct{})
+		b.subs[topic] = make(map[Client]struct{})
 	}
 	b.subs[topic][client] = struct{}{}
 }
 
-func (b *Broker) Publish(msg transport.Message) {
+func (b *Broker) Publish(msg proto.Message) {
 	slog.Debug("Publishing message", "message", msg)
 	b.mu.RLock()
 	defer b.mu.RUnlock()
@@ -40,7 +40,7 @@ func (b *Broker) Publish(msg transport.Message) {
 	}
 }
 
-func (b *Broker) Unsubscribe(topic string, client transport.Client) {
+func (b *Broker) Unsubscribe(topic string, client Client) {
 	slog.Debug("Unsubscribing", "topic", topic, "client", client)
 	b.mu.Lock()
 	defer b.mu.Unlock()

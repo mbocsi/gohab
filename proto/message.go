@@ -1,8 +1,7 @@
-package transport
+package proto
 
 import (
 	"encoding/json"
-	"time"
 )
 
 type Message struct {
@@ -41,25 +40,4 @@ type CapabilityTopic struct {
 
 type SubscriptionPayload struct {
 	Topics []string `json:"topics"` // e.g. ["sensor/temp", "device/77/status"]
-}
-
-type Transport interface {
-	Start() error
-	OnMessage(func(Message))
-	OnConnect(func(Client) error)
-	OnDisconnect(func(Client))
-	Shutdown() error
-}
-
-type DeviceMetadata struct {
-	Id           string
-	Name         string
-	LastSeen     time.Time
-	Firmware     string
-	Capabilities []Capability
-}
-
-type Client interface {
-	Send(Message) error
-	Meta() *DeviceMetadata
 }

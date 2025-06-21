@@ -1,4 +1,4 @@
-package transport
+package server
 
 import (
 	"bufio"
@@ -6,12 +6,14 @@ import (
 	"log/slog"
 	"net"
 	"time"
+
+	"github.com/mbocsi/gohab/proto"
 )
 
 type TCPTransport struct {
 	Addr         string
 	listener     net.Listener
-	onMessage    func(Message)
+	onMessage    func(proto.Message)
 	onConnect    func(Client) error
 	onDisconnect func(Client)
 }
@@ -60,7 +62,7 @@ func (t *TCPTransport) handleConnection(c net.Conn) {
 	// Identify device
 	for reader.Scan() {
 		line := reader.Bytes()
-		var msg Message
+		var msg proto.Message
 		if err := json.Unmarshal(line, &msg); err != nil {
 			slog.Warn("Invalid JSON message", "addr", id, "error", err.Error(), "data", string(line))
 			continue
@@ -73,7 +75,7 @@ func (t *TCPTransport) handleConnection(c net.Conn) {
 			panic("TCPTransport onConnect callback is not defined")
 		}
 
-		var idPayload IdentifyPayload
+		var idPayload proto.IdentifyPayload
 		if err := json.Unmarshal(msg.Payload, &idPayload); err != nil {
 			slog.Warn("Invalid JSON identify payload", "addr", id, "error", err.Error(), "data", string(line))
 			continue
@@ -99,7 +101,7 @@ func (t *TCPTransport) handleConnection(c net.Conn) {
 	for reader.Scan() {
 		line := reader.Bytes()
 		slog.Debug("Received data", "data", string(line))
-		var msg Message
+		var msg proto.Message
 		if err := json.Unmarshal(line, &msg); err != nil {
 			slog.Warn("Invalid JSON message", "addr", id, "error", err, "data", string(line))
 			continue
@@ -122,7 +124,7 @@ func (t *TCPTransport) Shutdown() error {
 	return nil
 }
 
-func (t *TCPTransport) OnMessage(fn func(Message)) {
+func (t *TCPTransport) OnMessage(fn func(proto.Message)) {
 	t.onMessage = fn
 }
 

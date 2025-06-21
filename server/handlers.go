@@ -1,26 +1,26 @@
-package app
+package server
 
 import (
 	"encoding/json"
 	"log/slog"
 	"time"
 
-	"github.com/mbocsi/gohab/transport"
+	"github.com/mbocsi/gohab/proto"
 )
 
-func (a *App) Handle(msg transport.Message) {
+func (c *Coordinator) Handle(msg proto.Message) {
 	switch msg.Type {
 	case "data", "status", "info":
-		a.handleData(msg)
+		c.handleData(msg)
 
 	case "subscribe", "unsubscribe":
-		a.handleSubscription(msg)
+		c.handleSubscription(msg)
 
 	case "command":
-		a.handleCommand(msg)
+		c.handleCommand(msg)
 
 	case "query", "response":
-		a.handleQuery(msg)
+		c.handleQuery(msg)
 
 	default:
 		slog.Warn("Unhandled message type", "type", msg.Type, "sender", msg.Sender)
@@ -29,12 +29,12 @@ func (a *App) Handle(msg transport.Message) {
 
 // ---------- data / status / info ---------- //
 
-func (a *App) handleData(msg transport.Message) {
+func (c *Coordinator) handleData(msg proto.Message) {
 	// Fan-out to all subscribers of msg.Topic.
 	//
 	//  ⚠  json.RawMessage *is already* a []byte alias,
 	//     so we can pass it straight to Publish.
-	a.Broker.Publish(msg)
+	c.Broker.Publish(msg)
 
 	slog.Debug("Data forwarded",
 		"topic", msg.Topic,
@@ -46,34 +46,34 @@ func (a *App) handleData(msg transport.Message) {
 
 // ---------- stubs for other message kinds ---------- //
 
-func (a *App) handleSubscription(msg transport.Message) {
+func (c *Coordinator) handleSubscription(msg proto.Message) {
 	switch msg.Type {
 	case "subscribe":
-		client, ok := a.Registery.Get(msg.Sender)
+		client, ok := c.Registery.Get(msg.Sender)
 		if !ok {
 			slog.Warn("Client ID not found", "client", msg.Sender)
 			return
 		}
-		var sub transport.SubscriptionPayload
+		var sub proto.SubscriptionPayload
 		json.Unmarshal(msg.Payload, &sub)
 		for _, topic := range sub.Topics {
-			a.Broker.Subscribe(topic, client)
+			c.Broker.Subscribe(topic, client)
 		}
 
 	case "unsubscribe":
-		client, ok := a.Registery.Get(msg.Sender)
+		client, ok := c.Registery.Get(msg.Sender)
 		if !ok {
 			slog.Warn("Client ID not found", "client", msg.Sender)
 			return
 		}
-		var sub transport.SubscriptionPayload
+		var sub proto.SubscriptionPayload
 		json.Unmarshal(msg.Payload, &sub)
 		for _, topic := range sub.Topics {
-			a.Broker.Unsubscribe(topic, client)
+			c.Broker.Unsubscribe(topic, client)
 		}
 	}
 }
 
 // TODO: Implement these
-func (a *App) handleCommand(msg transport.Message) {}
-func (a *App) handleQuery(msg transport.Message)   {}
+func (c *Coordinator) handleCommand(msg proto.Message) {}
+func (c *Coordinator) handleQuery(msg proto.Message)   {}
