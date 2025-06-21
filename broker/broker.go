@@ -9,24 +9,24 @@ import (
 
 type Broker struct {
 	mu   sync.RWMutex
-	subs map[string]map[chan transport.Message]struct{} // Map topic to hashset of Message channels
+	subs map[string]map[transport.Client]struct{} // Map topic to hashset of Clients
 }
 
 func NewBroker() *Broker {
 	return &Broker{
-		subs: make(map[string]map[chan transport.Message]struct{}),
+		subs: make(map[string]map[transport.Client]struct{}),
 	}
 }
 
-func (b *Broker) Subscribe(topic string, ch chan transport.Message) {
-	slog.Debug("Subscribing", "topic", topic, "channel", ch)
+func (b *Broker) Subscribe(topic string, client transport.Client) {
+	slog.Debug("Subscribing", "topic", topic, "client", client)
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
 	if b.subs[topic] == nil {
-		b.subs[topic] = make(map[chan transport.Message]struct{})
+		b.subs[topic] = make(map[transport.Client]struct{})
 	}
-	b.subs[topic][ch] = struct{}{}
+	b.subs[topic][client] = struct{}{}
 }
 
 func (b *Broker) Publish(msg transport.Message) {
@@ -34,25 +34,22 @@ func (b *Broker) Publish(msg transport.Message) {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
 
-	for ch := range b.subs[msg.Topic] {
-		select {
-		case ch <- msg:
-		default:
-			slog.Error("Dropped message to %v (buffer full)", ch)
-		}
+	// Potentially make this non blocking?
+	for client := range b.subs[msg.Topic] {
+		client.Send(msg)
 	}
 }
 
-func (b *Broker) Unsubscribe(topic string, ch chan transport.Message) {
-	slog.Debug("Unsubscribing", "topic", topic, "channel", ch)
+func (b *Broker) Unsubscribe(topic string, client transport.Client) {
+	slog.Debug("Unsubscribing", "topic", topic, "client", client)
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
 	if subs, ok := b.subs[topic]; ok {
-		if _, exists := subs[ch]; exists {
-			delete(subs, ch)
+		if _, exists := subs[client]; exists {
+			delete(subs, client)
 		} else {
-			slog.Warn("Did not find channel %v in topic '%s' subs", ch, topic)
+			slog.Warn("Did not find client in topic to unsubscribe", "topic", topic, "client", client)
 		}
 		if len(subs) == 0 {
 			delete(b.subs, topic)

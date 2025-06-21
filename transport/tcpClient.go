@@ -6,12 +6,12 @@ import (
 )
 
 type TCPClient struct {
-	id   string
+	Id   string
 	conn net.Conn
 }
 
 func NewTCPClient(id string, conn net.Conn) *TCPClient {
-	return &TCPClient{id, conn}
+	return &TCPClient{Id: id, conn: conn}
 }
 
 func (c *TCPClient) Send(msg Message) error {
