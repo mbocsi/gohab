@@ -48,8 +48,10 @@ func (t *TCPTransport) handleConnection(c net.Conn) {
 	defer func() {
 		if t.onDisconnect != nil {
 			t.onDisconnect(client)
+		} else {
+			panic("TCPTransport callback is not defined")
 		}
-		slog.Info("Device disconnected", "addr", id)
+		slog.Info("Device disconnected", "addr", id, "id", client.Id)
 		c.Close()
 	}()
 
@@ -68,7 +70,7 @@ func (t *TCPTransport) handleConnection(c net.Conn) {
 			continue
 		}
 		if t.onConnect == nil {
-			panic("TCPClient onConnect callback must be defined")
+			panic("TCPTransport onConnect callback is not defined")
 		}
 
 		var idPayload IdentifyPayload
@@ -96,6 +98,7 @@ func (t *TCPTransport) handleConnection(c net.Conn) {
 	// Read messages from device
 	for reader.Scan() {
 		line := reader.Bytes()
+		slog.Debug("Received data", "data", string(line))
 		var msg Message
 		if err := json.Unmarshal(line, &msg); err != nil {
 			slog.Warn("Invalid JSON message", "addr", id, "error", err, "data", string(line))
@@ -106,7 +109,7 @@ func (t *TCPTransport) handleConnection(c net.Conn) {
 		if t.onMessage != nil {
 			t.onMessage(msg)
 		} else {
-			panic("TCPClient onMessage callback must be defined")
+			panic("TCPTransport onMessage callback is not defined")
 		}
 	}
 }
