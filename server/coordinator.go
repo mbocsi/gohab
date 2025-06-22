@@ -59,9 +59,9 @@ func (c *Coordinator) RegisterDevice(client Client) error {
 
 	c.Registery.Store(client)
 
-	ackPayload := map[string]string{
-		"assigned_id": realID,
-		"status":      "ok",
+	ackPayload := proto.IdAckPayload{
+		AssignedId: realID,
+		Status:     "ok",
 	}
 
 	ackPayloadBytes, err := json.Marshal(ackPayload)
