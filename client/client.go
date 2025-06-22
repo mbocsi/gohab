@@ -20,7 +20,7 @@ type Client struct {
 
 	// Handlers for command messages
 	commandHandlers map[string]func(proto.Message) error
-	queryHandlers   map[string]func(proto.Message) (payload any, err error)
+	queryHandlers   map[string]func(proto.Message) (payload json.RawMessage, err error)
 
 	// Helpers for publishing data or status
 	dataFuncs   map[string]func(payload any) error
@@ -34,7 +34,7 @@ func NewClient(name string, t Transport) *Client {
 		ackCh:           make(chan struct{}),
 		capabilities:    make(map[string]proto.Capability),
 		commandHandlers: make(map[string]func(proto.Message) error),
-		queryHandlers:   make(map[string]func(proto.Message) (payload any, err error)),
+		queryHandlers:   make(map[string]func(proto.Message) (payload json.RawMessage, err error)),
 		dataFuncs:       make(map[string]func(payload any) error),
 		statusFuncs:     make(map[string]func(payload any) error),
 	}
@@ -106,13 +106,35 @@ retryIdentify:
 				close(c.ackCh) // unblock Run
 			}
 
-		// TODO: Implement command and query
 		case "command":
-			c.commandHandlers[msg.Topic](msg)
+			handler := c.commandHandlers[msg.Topic]
+			if handler != nil {
+				err := handler(msg)
+				if err != nil {
+					slog.Warn("An error occured in commandHandler", "topic", msg.Topic, "error", err.Error())
+				}
+			} else {
+				slog.Warn("Topic not found in query handlers: Ignoring message", "topic", msg.Topic)
+			}
 		case "query":
+			handler := c.queryHandlers[msg.Topic]
+			if handler == nil {
+				slog.Warn("Topic not found in query handlers")
+				continue
+			}
+			responsePayload, err := handler(msg)
+			if err != nil {
+				slog.Warn("An error occured in queryHandler", "topic", msg.Topic, "error", err.Error())
+				continue
+			}
+			responseMsg := proto.Message{Type: "response", Topic: msg.Topic, Recipient: msg.Sender, Payload: responsePayload, Timestamp: time.Now().Unix()}
+			err = c.transport.Send(responseMsg)
+			if err != nil {
+				slog.Warn("An error occured when sending response", "response", responseMsg, "error", err.Error())
+			}
 
 		default:
-			fmt.Println("Unhandled message:", msg.Type)
+			slog.Warn("Unhandled message", "type", msg.Type)
 		}
 	}
 }
@@ -146,7 +168,7 @@ func (c *Client) AddCapability(cap proto.Capability) error {
 
 func (c *Client) GenerateCapabilityFunctions(name string,
 	commandHandler func(msg proto.Message) error,
-	queryHandler func(msg proto.Message) (payload any, err error)) (dataFn func(payload any) error, statusFn func(payload any) error, err error) {
+	queryHandler func(msg proto.Message) (payload json.RawMessage, err error)) (dataFn func(payload any) error, statusFn func(payload any) error, err error) {
 	cap, ok := c.capabilities[name]
 	if !ok {
 		return nil, nil, fmt.Errorf("capability %q not found", name)
