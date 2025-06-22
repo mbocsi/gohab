@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net"
 
 	"github.com/mbocsi/gohab/proto"
@@ -35,6 +36,7 @@ func (t *TCPTransport) Send(msg proto.Message) error {
 	}
 	data = append(data, '\n')
 	_, err = t.conn.Write(data)
+	slog.Debug("Sent Message", "type", msg.Type, "topic", msg.Topic, "size", len(msg.Payload))
 	return err
 }
 

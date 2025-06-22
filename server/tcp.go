@@ -42,10 +42,10 @@ func (t *TCPTransport) Start() error {
 }
 
 func (t *TCPTransport) handleConnection(c net.Conn) {
-	id := c.RemoteAddr().String()
-	slog.Info("Device connected", "addr", id)
+	ip := c.RemoteAddr().String()
+	slog.Info("Device connected", "addr", ip)
 
-	client := NewTCPClient(c, DeviceMetadata{Id: id})
+	client := NewTCPClient(c, DeviceMetadata{})
 
 	defer func() {
 		if t.onDisconnect != nil {
@@ -53,7 +53,7 @@ func (t *TCPTransport) handleConnection(c net.Conn) {
 		} else {
 			panic("TCPTransport callback is not defined")
 		}
-		slog.Info("Device disconnected", "addr", id, "id", client.Id)
+		slog.Info("Device disconnected", "addr", ip, "id", client.Id)
 		c.Close()
 	}()
 
@@ -64,11 +64,11 @@ func (t *TCPTransport) handleConnection(c net.Conn) {
 		line := reader.Bytes()
 		var msg proto.Message
 		if err := json.Unmarshal(line, &msg); err != nil {
-			slog.Warn("Invalid JSON message", "addr", id, "error", err.Error(), "data", string(line))
+			slog.Warn("Invalid JSON message received", "addr", ip, "error", err.Error(), "data", string(line))
 			continue
 		}
 		if msg.Type != "identify" {
-			slog.Warn("Received a message other than identify", "addr", id, "data", string(line))
+			slog.Warn("Received a message type other than identify", "type", msg.Type, "addr", ip)
 			continue
 		}
 		if t.onConnect == nil {
@@ -77,7 +77,7 @@ func (t *TCPTransport) handleConnection(c net.Conn) {
 
 		var idPayload proto.IdentifyPayload
 		if err := json.Unmarshal(msg.Payload, &idPayload); err != nil {
-			slog.Warn("Invalid JSON identify payload", "addr", id, "error", err.Error(), "data", string(line))
+			slog.Warn("Invalid JSON identify payload received", "addr", ip, "error", err.Error(), "data", string(line))
 			continue
 		}
 
@@ -88,26 +88,24 @@ func (t *TCPTransport) handleConnection(c net.Conn) {
 
 		err := t.onConnect(client)
 		if err != nil {
-			slog.Warn("Failed to register device identity", "addr", id, "error", err.Error(), "data", string(line))
+			slog.Warn("Failed to register device identity", "addr", ip, "error", err.Error(), "data", string(line))
 		} else {
 			// identity register success
 			break
 		}
 	}
-
-	slog.Info("Identified client", "addr", id, "id", client.Id)
-
+	// Device identified
 	// Read messages from device
 	for reader.Scan() {
 		line := reader.Bytes()
-		slog.Debug("Received data", "data", string(line))
 		var msg proto.Message
 		if err := json.Unmarshal(line, &msg); err != nil {
-			slog.Warn("Invalid JSON message", "addr", id, "error", err, "data", string(line))
+			slog.Warn("Invalid JSON message received", "error", err, "data", string(line))
 			continue
 		}
 		// Inject client ID into message
 		msg.Sender = client.Id
+		slog.Debug("Message received", "type", msg.Type, "topic", msg.Topic, "sender", msg.Sender, "size", len(msg.Payload))
 		if t.onMessage != nil {
 			t.onMessage(msg)
 		} else {
@@ -117,7 +115,7 @@ func (t *TCPTransport) handleConnection(c net.Conn) {
 }
 
 func (t *TCPTransport) Shutdown() error {
-	slog.Debug("Shutting down tcp server", "addr", t.Addr)
+	slog.Info("Shutting down tcp server", "addr", t.Addr)
 	if t.listener != nil {
 		return t.listener.Close()
 	}

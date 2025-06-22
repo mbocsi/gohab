@@ -3,7 +3,6 @@ package server
 import (
 	"encoding/json"
 	"log/slog"
-	"time"
 
 	"github.com/mbocsi/gohab/proto"
 )
@@ -35,13 +34,6 @@ func (c *Coordinator) handleData(msg proto.Message) {
 	//  ⚠  json.RawMessage *is already* a []byte alias,
 	//     so we can pass it straight to Publish.
 	c.Broker.Publish(msg)
-
-	slog.Debug("Data forwarded",
-		"topic", msg.Topic,
-		"sender", msg.Sender,
-		"bytes", len(msg.Payload),
-		"ts", time.Unix(msg.Timestamp, 0).UTC(),
-	)
 }
 
 // ---------- stubs for other message kinds ---------- //

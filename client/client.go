@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"maps"
+	"os"
 	"slices"
 	"time"
 
@@ -44,10 +45,8 @@ func (c *Client) Connect(addr string) error {
 	return c.transport.Connect(addr)
 }
 
-func (c *Client) Run() error {
-	if err := c.sendIdentify(); err != nil {
-		return err
-	}
+func (c *Client) Start() error {
+	setupLogger()
 
 	// Start read loop in background
 	go c.readLoop()
@@ -78,6 +77,7 @@ retryIdentify:
 			fmt.Println("read error:", err)
 			return
 		}
+		slog.Debug("Message Received", "type", msg.Type, "topic", msg.Topic, "sender", msg.Sender, "size", len(msg.Payload))
 
 		switch msg.Type {
 		case "identify_ack":
@@ -155,6 +155,7 @@ func (c *Client) sendIdentify() error {
 		Timestamp: time.Now().Unix(),
 		Payload:   payload,
 	}
+	slog.Info("Sending identify message", "proposed_name", idPayload.ProposedName, "firmware", idPayload.Firmware, "capabilities", len(idPayload.Capabilities))
 	return c.transport.Send(msg)
 }
 
@@ -225,4 +226,11 @@ func mustMarshal(v any) []byte {
 		panic("marshal error: " + err.Error())
 	}
 	return data
+}
+
+func setupLogger() {
+	handler := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+		Level: slog.LevelDebug,
+	})
+	slog.SetDefault(slog.New(handler))
 }

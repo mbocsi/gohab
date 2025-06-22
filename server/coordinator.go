@@ -76,5 +76,6 @@ func (c *Coordinator) RegisterDevice(client Client) error {
 		Timestamp: time.Now().Unix(),
 	}
 	client.Send(ack)
+	slog.Info("Identified client", "id", realID, "name", client.Meta().Name)
 	return nil
 }

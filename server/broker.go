@@ -19,7 +19,7 @@ func NewBroker() *Broker {
 }
 
 func (b *Broker) Subscribe(topic string, client Client) {
-	slog.Debug("Subscribing", "topic", topic, "client", client)
+	slog.Debug("Subscribing", "topic", topic, "clientId", client.Meta().Id)
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -30,18 +30,30 @@ func (b *Broker) Subscribe(topic string, client Client) {
 }
 
 func (b *Broker) Publish(msg proto.Message) {
-	slog.Debug("Publishing message", "message", msg)
 	b.mu.RLock()
 	defer b.mu.RUnlock()
 
+	sentCount := 0
 	// Potentially make this non blocking?
 	for client := range b.subs[msg.Topic] {
-		client.Send(msg)
+		err := client.Send(msg)
+		if err != nil {
+			slog.Warn("There was an error publishing a message to a subscriber", "type", msg.Type, "topic", msg.Topic, "error", err.Error())
+			continue
+		}
+		sentCount++
 	}
+	slog.Debug("Message published",
+		"type", msg.Type,
+		"topic", msg.Topic,
+		"sender", msg.Sender,
+		"subscribers", sentCount,
+		"size", len(msg.Payload),
+	)
 }
 
 func (b *Broker) Unsubscribe(topic string, client Client) {
-	slog.Debug("Unsubscribing", "topic", topic, "client", client)
+	slog.Debug("Unsubscribing", "topic", topic, "clientId", client.Meta().Id)
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
