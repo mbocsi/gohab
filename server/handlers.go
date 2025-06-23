@@ -9,7 +9,7 @@ import (
 
 func (c *Coordinator) Handle(msg proto.Message) {
 	switch msg.Type {
-	case "data", "status", "info":
+	case "data", "status":
 		c.handleData(msg)
 
 	case "subscribe", "unsubscribe":

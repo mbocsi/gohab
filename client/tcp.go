@@ -30,6 +30,9 @@ func (t *TCPTransport) Connect(addr string) error {
 }
 
 func (t *TCPTransport) Send(msg proto.Message) error {
+	if t.conn == nil {
+		return fmt.Errorf("Transport is not connected")
+	}
 	data, err := json.Marshal(msg)
 	if err != nil {
 		return err

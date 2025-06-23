@@ -14,12 +14,7 @@ func main() {
 	tcp := client.NewTCPTransport()
 	c := client.NewClient("sensor-a", tcp)
 
-	err := c.Connect("localhost:8080") // Use Docker service name
-	if err != nil {
-		panic(err)
-	}
-
-	err = c.AddCapability(proto.Capability{
+	err := c.AddCapability(proto.Capability{
 		Name:     "temperature",
 		Type:     "sensor",
 		Access:   "read",
@@ -38,10 +33,7 @@ func main() {
 		panic(err)
 	}
 
-	err = c.Start()
-	if err != nil {
-		panic(err)
-	}
+	go c.Start("localhost:8080") // Start in background
 
 	ticker := time.NewTicker(5 * time.Second)
 	for temp := 20.0; ; temp += 0.1 {
