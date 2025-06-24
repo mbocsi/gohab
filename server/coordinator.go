@@ -2,12 +2,7 @@ package server
 
 import (
 	"context"
-	"encoding/json"
 	"log/slog"
-	"time"
-
-	"github.com/google/uuid"
-	"github.com/mbocsi/gohab/proto"
 )
 
 type Coordinator struct {
@@ -44,38 +39,26 @@ func (c *Coordinator) RegisterTransport(t Transport) {
 	c.Transports = append(c.Transports, t)
 }
 
-func (c *Coordinator) generateDeviceID() string {
-	// Option 1: Use the IP address (not stable if NAT is involved)
-	// return "device-" + strings.ReplaceAll(client.RemoteAddr(), ":", "_")
-
-	// Option 2: Generate short UUID (preferred)
-	return "device-" + uuid.NewString()[:8]
-}
-
 func (c *Coordinator) RegisterDevice(client Client) error {
-	// Generate a real ID and inject it
-	realID := c.generateDeviceID()
-	client.Meta().Id = realID
-
 	c.Registery.Store(client)
 
-	ackPayload := proto.IdAckPayload{
-		AssignedId: realID,
-		Status:     "ok",
-	}
+	// ackPayload := proto.IdAckPayload{
+	// 	AssignedId: client.Meta().Id,
+	// 	Status:     "ok",
+	// }
 
-	ackPayloadBytes, err := json.Marshal(ackPayload)
-	if err != nil {
-		return err
-	}
+	// ackPayloadBytes, err := json.Marshal(ackPayload)
+	// if err != nil {
+	// 	return err
+	// }
 
-	ack := proto.Message{
-		Type:      "identify_ack",
-		Payload:   ackPayloadBytes,
-		Sender:    "server",
-		Timestamp: time.Now().Unix(),
-	}
-	client.Send(ack)
-	slog.Info("Identified client", "id", realID, "name", client.Meta().Name)
+	// ack := proto.Message{
+	// 	Type:      "identify_ack",
+	// 	Payload:   ackPayloadBytes,
+	// 	Sender:    "server",
+	// 	Timestamp: time.Now().Unix(),
+	// }
+	// client.Send(ack)
+	slog.Info("Registered client", "id", client.Meta().Id)
 	return nil
 }

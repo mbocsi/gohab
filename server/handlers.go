@@ -3,12 +3,16 @@ package server
 import (
 	"encoding/json"
 	"log/slog"
+	"time"
 
 	"github.com/mbocsi/gohab/proto"
 )
 
 func (c *Coordinator) Handle(msg proto.Message) {
 	switch msg.Type {
+	case "identify":
+		c.handleIdentify(msg)
+
 	case "data", "status":
 		c.handleData(msg)
 
@@ -26,7 +30,52 @@ func (c *Coordinator) Handle(msg proto.Message) {
 	}
 }
 
-// ---------- data / status / info ---------- //
+// ---------- identify ---------- //
+
+func (c *Coordinator) handleIdentify(msg proto.Message) {
+	id := msg.Sender
+	client, ok := c.Registery.Get(id)
+	if !ok {
+		slog.Error("Unknown client sent identify message", "id", id)
+		return
+	}
+
+	var idPayload proto.IdentifyPayload
+	if err := json.Unmarshal(msg.Payload, &idPayload); err != nil {
+		slog.Warn("Invalid JSON identify payload received", "id", id, "error", err.Error(), "data", string(msg.Payload))
+		return
+	}
+
+	newMetadata := DeviceMetadata{
+		Id:           id,
+		Name:         idPayload.ProposedName,
+		LastSeen:     time.Now(),
+		Firmware:     idPayload.Firmware,
+		Capabilities: idPayload.Capabilities}
+
+	*client.Meta() = newMetadata
+
+	ackPayload := proto.IdAckPayload{
+		AssignedId: client.Meta().Id,
+		Status:     "ok",
+	}
+
+	ackPayloadBytes, err := json.Marshal(ackPayload)
+	if err != nil {
+		slog.Warn("There was an error marshalling ack payload", "error", err.Error())
+		return
+	}
+
+	ack := proto.Message{
+		Type:      "identify_ack",
+		Payload:   ackPayloadBytes,
+		Sender:    "server",
+		Timestamp: time.Now().Unix(),
+	}
+	client.Send(ack)
+}
+
+// ---------- data / status ---------- //
 
 func (c *Coordinator) handleData(msg proto.Message) {
 	// Fan-out to all subscribers of msg.Topic.

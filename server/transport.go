@@ -3,6 +3,7 @@ package server
 import (
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/mbocsi/gohab/proto"
 )
 
@@ -25,4 +26,8 @@ type DeviceMetadata struct {
 type Client interface {
 	Send(proto.Message) error
 	Meta() *DeviceMetadata
+}
+
+func generateClientId(prefix string) string {
+	return prefix + "-" + uuid.NewString()
 }

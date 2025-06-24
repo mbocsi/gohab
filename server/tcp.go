@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net"
-	"time"
 
 	"github.com/mbocsi/gohab/proto"
 )
@@ -45,7 +44,8 @@ func (t *TCPTransport) handleConnection(c net.Conn) {
 	ip := c.RemoteAddr().String()
 	slog.Info("Device connected", "addr", ip)
 
-	client := NewTCPClient(c, DeviceMetadata{})
+	id := generateClientId("tcp")
+	client := NewTCPClient(c, DeviceMetadata{Id: id})
 
 	defer func() {
 		if t.onDisconnect != nil {
@@ -59,43 +59,15 @@ func (t *TCPTransport) handleConnection(c net.Conn) {
 
 	reader := bufio.NewScanner(c)
 
-	// Identify device
-	for reader.Scan() {
-		line := reader.Bytes()
-		var msg proto.Message
-		if err := json.Unmarshal(line, &msg); err != nil {
-			slog.Warn("Invalid JSON message received", "addr", ip, "error", err.Error(), "data", string(line))
-			continue
-		}
-		if msg.Type != "identify" {
-			slog.Warn("Received a message type other than identify", "type", msg.Type, "addr", ip)
-			continue
-		}
-		if t.onConnect == nil {
-			panic("TCPTransport onConnect callback is not defined")
-		}
-
-		var idPayload proto.IdentifyPayload
-		if err := json.Unmarshal(msg.Payload, &idPayload); err != nil {
-			slog.Warn("Invalid JSON identify payload received", "addr", ip, "error", err.Error(), "data", string(line))
-			continue
-		}
-
-		client.DeviceMetadata = DeviceMetadata{Name: idPayload.ProposedName,
-			LastSeen:     time.Now(),
-			Firmware:     idPayload.Firmware,
-			Capabilities: idPayload.Capabilities}
-
-		err := t.onConnect(client)
-		if err != nil {
-			slog.Warn("Failed to register device identity", "addr", ip, "error", err.Error(), "data", string(line))
-		} else {
-			// identity register success
-			break
-		}
+	if t.onConnect == nil {
+		panic("TCPTransport onConnect callback is not defined")
 	}
-	// Device identified
-	// Read messages from device
+	err := t.onConnect(client)
+	if err != nil {
+		slog.Error("Failed to register device", "addr", ip, "error", err.Error())
+		return
+	}
+
 	for reader.Scan() {
 		line := reader.Bytes()
 		var msg proto.Message
