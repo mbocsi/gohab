@@ -10,10 +10,11 @@ import (
 
 type Server interface {
 	Start() error
+	Shutdown() error
 }
 
 type GohabServerOptions struct {
-	MCPServer Server          // Optional MCPServer to run alongside
+	MCPServer *MCPServer      // Optional MCPServer to run alongside
 	Broker    *Broker         // Optional (defaults to new Broker if nil)
 	Registry  *DeviceRegistry // Optional (defaults to new Registry if nil)
 	Context   context.Context // Optional (defaults to context.Background())
@@ -31,6 +32,7 @@ func NewGohabServer(opts GohabServerOptions) *GohabServer {
 	if opts.Registry == nil {
 		opts.Registry = NewDeviceRegistry()
 	}
+	// TODO: Currently not used
 	if opts.Context == nil {
 		opts.Context = context.Background()
 	}

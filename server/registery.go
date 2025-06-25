@@ -31,3 +31,15 @@ func (r *DeviceRegistry) Delete(id string) Client {
 	defer r.mu.RUnlock()
 	return r.store[id]
 }
+
+func (r *DeviceRegistry) List() []Client {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	clients := make([]Client, 0, len(r.store))
+	for _, client := range r.store {
+		clients = append(clients, client)
+	}
+
+	return clients
+}

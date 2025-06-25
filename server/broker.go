@@ -67,5 +67,4 @@ func (b *Broker) Unsubscribe(topic string, client Client) {
 			delete(b.subs, topic)
 		}
 	}
-
 }

@@ -8,8 +8,7 @@ import (
 
 func main() {
 	tcpServer := server.NewTCPTransport("0.0.0.0:8080")
-	mcpServer := server.NewMCPServer()
-	gohabServer := server.NewGohabServer(server.GohabServerOptions{MCPServer: mcpServer})
+	gohabServer := server.NewGohabServer(server.GohabServerOptions{})
 	gohabServer.RegisterTransport(tcpServer)
 
 	if err := gohabServer.Start(); err != nil {
