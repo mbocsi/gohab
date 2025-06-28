@@ -7,80 +7,97 @@ import (
 )
 
 type Capability struct {
-	Name        string          `json:"name"`                  // Unique key: "temperature", "led", etc.
-	Type        string          `json:"type"`                  // "sensor", "actuator", "config", etc.
-	Access      string          `json:"access"`                // "read", "write", "read/write"
-	DataType    string          `json:"data_type"`             // "number", "string", "bool", "enum"
-	Unit        string          `json:"unit,omitempty"`        // Optional: °C, %, lux, etc.
-	Range       []float64       `json:"range,omitempty"`       // Optional: [min, max]
-	Enum        []string        `json:"enum,omitempty"`        // For enum data types: ["on", "off"]
-	Topic       CapabilityTopic `json:"topic"`                 // Routing topics (may be logical or server-defined)
-	Description string          `json:"description,omitempty"` // Human-readable purpose
-	LLMTags     []string        `json:"llm_tags,omitempty"`    // Hints for LLMs or indexing
+	Name        string            `json:"name"`                  // Unique key: "temperature", "led", etc.
+	Description string            `json:"description,omitempty"` // Human-readable purpose
+	Methods     CapabilityMethods `json:"methods"`               // Routing topics (Generated topics will be name/method)
 }
 
-func NewCapability() Capability {
-	return Capability{}
+type DataType struct {
+	Type        string    `json:"type"`
+	Unit        string    `json:"unit,omitempty"`
+	Description string    `json:"description,omitempty"`
+	Optional    bool      `json:"optional,omitempty"`
+	Range       []float64 `json:"range,omitempty"`
+	Enum        []string  `json:"enum,omitemtpy"`
+}
+
+type Method struct {
+	InputSchema  map[string]DataType `json:"input_schema,omitempty"`
+	OutputSchema map[string]DataType `json:"output_schema,omitempty"`
+	Description  string              `json:"description,omitempty"`
+}
+
+type CapabilityMethods struct {
+	Data    Method `json:"data,omitempty"`
+	Status  Method `json:"status,omitempty"`
+	Command Method `json:"command,omitempty"`
+	Query   Method `json:"query,omitempty"`
 }
 
 func (c *Capability) Validate() error {
 	if strings.TrimSpace(c.Name) == "" {
 		return errors.New("capability name is required")
 	}
-	if strings.TrimSpace(c.Type) == "" {
-		return errors.New("capability type is required")
+
+	// Ensure at least one method is defined
+	if !c.Methods.Data.IsDefined() &&
+		!c.Methods.Status.IsDefined() &&
+		!c.Methods.Command.IsDefined() &&
+		!c.Methods.Query.IsDefined() {
+		return fmt.Errorf("capability %q must define at least one method", c.Name)
 	}
-	if c.Type != "sensor" && c.Type != "actuator" && c.Type != "config" {
-		return fmt.Errorf("invalid capability type: %q", c.Type)
+
+	// Validate each method individually
+	if err := c.Methods.Data.Validate("data"); err != nil {
+		return err
 	}
-	if strings.TrimSpace(c.Access) == "" {
-		return errors.New("capability access is required")
+	if err := c.Methods.Status.Validate("status"); err != nil {
+		return err
 	}
-	if c.Access != "read" && c.Access != "write" && c.Access != "read/write" {
-		return fmt.Errorf("invalid access mode: %q", c.Access)
+	if err := c.Methods.Command.Validate("command"); err != nil {
+		return err
 	}
-	if strings.TrimSpace(c.DataType) == "" {
-		return errors.New("capability data_type is required")
+	if err := c.Methods.Query.Validate("query"); err != nil {
+		return err
 	}
-	switch c.DataType {
-	case "number", "string", "bool":
-		// no extra validation
-	case "enum":
-		if len(c.Enum) == 0 {
-			return errors.New("enum capabilities must define Enum field")
+
+	return nil
+}
+func (m Method) IsDefined() bool {
+	return len(m.InputSchema) > 0 || len(m.OutputSchema) > 0
+}
+
+func (m Method) Validate(name string) error {
+	for field, schema := range m.InputSchema {
+		if err := validateDataType(fmt.Sprintf("%s.input.%s", name, field), schema); err != nil {
+			return err
 		}
-	default:
-		return fmt.Errorf("invalid data_type: %q", c.DataType)
 	}
-	if err := c.Topic.Validate(); err != nil {
-		return fmt.Errorf("invalid topic: %w", err)
+	for field, schema := range m.OutputSchema {
+		if err := validateDataType(fmt.Sprintf("%s.output.%s", name, field), schema); err != nil {
+			return err
+		}
 	}
 	return nil
 }
 
-type CapabilityTopic struct {
-	Name  string   `json:"name"`
-	Types []string `json:"types,omitempty"`
+var validDataTypes = map[string]bool{
+	"number": true,
+	"string": true,
+	"bool":   true,
+	"enum":   true,
+	"object": true,
 }
 
-var validTypes = map[string]bool{
-	"data":    true,
-	"status":  true,
-	"command": true,
-	"query":   true,
-}
-
-func (ct CapabilityTopic) Validate() error {
-	if strings.TrimSpace(ct.Name) == "" {
-		return errors.New("topic name is required")
+func validateDataType(path string, dt DataType) error {
+	if _, ok := validDataTypes[dt.Type]; !ok {
+		return fmt.Errorf("invalid data type %q at %s", dt.Type, path)
 	}
-	if len(ct.Types) == 0 {
-		return errors.New("at least one message type must be specified")
+	if dt.Type == "enum" && len(dt.Enum) == 0 {
+		return fmt.Errorf("enum type at %s must define non-empty Enum", path)
 	}
-	for _, t := range ct.Types {
-		if !validTypes[t] {
-			return fmt.Errorf("invalid message type in topic: %q", t)
-		}
+	if dt.Type == "number" && len(dt.Range) > 0 && len(dt.Range) != 2 {
+		return fmt.Errorf("range at %s must have exactly two values (min, max)", path)
 	}
 	return nil
 }

@@ -15,20 +15,28 @@ func main() {
 	c := client.NewClient("sensor-a", tcp)
 
 	err := c.AddCapability(proto.Capability{
-		Name:     "temperature",
-		Type:     "sensor",
-		Access:   "read",
-		DataType: "number",
-		Topic: proto.CapabilityTopic{
-			Name:  "sensor/temp",
-			Types: []string{"data", "status"},
+		Name:        "temperature",
+		Description: "A temperature sensor outside on the deck",
+		Methods: proto.CapabilityMethods{
+			Data: proto.Method{Description: "Temperature outside the deck",
+				OutputSchema: map[string]proto.DataType{
+					"temperature": {Type: "number"},
+					"time":        {Type: "string"}}},
+			Status: proto.Method{
+				Description: "Whether the sensor works or not",
+				OutputSchema: map[string]proto.DataType{
+					"status": {Type: "enum", Enum: []string{"ok", "bad"}},
+				}},
 		},
-	})
+	},
+	)
+
+	dataFn, err := c.GetDataFunction("temperature")
 	if err != nil {
 		panic(err)
 	}
 
-	dataFn, statusFn, err := c.GenerateCapabilityFunctions("temperature", nil, nil)
+	statusFn, err := c.GetStatusFunction("temperature")
 	if err != nil {
 		panic(err)
 	}

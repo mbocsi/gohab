@@ -19,7 +19,7 @@ type Client struct {
 	Id           string
 	capabilities map[string]proto.Capability
 
-	// Handlers for command messages
+	//Handlers for command messages
 	commandHandlers map[string]func(proto.Message) error
 	queryHandlers   map[string]func(proto.Message) (payload json.RawMessage, err error)
 
@@ -205,57 +205,94 @@ func (c *Client) AddCapability(cap proto.Capability) error {
 	return nil
 }
 
-func (c *Client) GenerateCapabilityFunctions(name string,
-	commandHandler func(msg proto.Message) error,
-	queryHandler func(msg proto.Message) (payload json.RawMessage, err error)) (dataFn func(payload any) error, statusFn func(payload any) error, err error) {
+func (c *Client) GetDataFunction(name string) (func(payload any) error, error) {
 	cap, ok := c.capabilities[name]
 	if !ok {
-		return nil, nil, fmt.Errorf("capability %q not found", name)
+		return nil, fmt.Errorf("capability %q not found", name)
 	}
 
-	for _, t := range cap.Topic.Types {
-		switch t {
-		case "data":
-			dataFn = func(payload any) error {
-				binPayload, err := json.Marshal(payload)
-				if err != nil {
-					return err
-				}
-				return c.transport.Send(proto.Message{
-					Type:      "data",
-					Topic:     cap.Topic.Name,
-					Payload:   binPayload,
-					Timestamp: time.Now().Unix(),
-				})
-			}
-			c.dataFuncs[name] = dataFn
-		case "status":
-			statusFn = func(payload any) error {
-				binPayload, err := json.Marshal(payload)
-				if err != nil {
-					return err
-				}
-				return c.transport.Send(proto.Message{
-					Type:      "status",
-					Topic:     cap.Topic.Name,
-					Payload:   binPayload,
-					Timestamp: time.Now().Unix(),
-				})
-			}
-			c.statusFuncs[name] = statusFn
-		case "command":
-			if commandHandler == nil {
-				return nil, nil, fmt.Errorf("capability %q declares command support but no handler provided", name)
-			}
-			c.commandHandlers[cap.Topic.Name] = commandHandler
-		case "query":
-			if queryHandler == nil {
-				return nil, nil, fmt.Errorf("capability %q declares query support but no handler provided", name)
-			}
-			c.queryHandlers[cap.Topic.Name] = queryHandler
-		}
+	if !cap.Methods.Data.IsDefined() {
+		return nil, fmt.Errorf("capability %q does not support data method", name)
 	}
-	return dataFn, statusFn, nil
+
+	fn := func(payload any) error {
+		binPayload, err := json.Marshal(payload)
+		if err != nil {
+			return err
+		}
+		return c.transport.Send(proto.Message{
+			Type:      "data",
+			Topic:     fmt.Sprintf("%s/data", name),
+			Payload:   binPayload,
+			Timestamp: time.Now().Unix(),
+		})
+	}
+
+	c.dataFuncs[name] = fn
+	return fn, nil
+}
+
+func (c *Client) GetStatusFunction(name string) (func(payload any) error, error) {
+	cap, ok := c.capabilities[name]
+	if !ok {
+		return nil, fmt.Errorf("capability %q not found", name)
+	}
+
+	if !cap.Methods.Status.IsDefined() {
+		return nil, fmt.Errorf("capability %q does not support status method", name)
+	}
+
+	fn := func(payload any) error {
+		binPayload, err := json.Marshal(payload)
+		if err != nil {
+			return err
+		}
+		return c.transport.Send(proto.Message{
+			Type:      "status",
+			Topic:     fmt.Sprintf("%s/status", name),
+			Payload:   binPayload,
+			Timestamp: time.Now().Unix(),
+		})
+	}
+
+	c.statusFuncs[name] = fn
+	return fn, nil
+}
+
+func (c *Client) RegisterCommandHandler(name string, handler func(msg proto.Message) error) error {
+	cap, ok := c.capabilities[name]
+	if !ok {
+		return fmt.Errorf("capability %q not found", name)
+	}
+
+	if !cap.Methods.Command.IsDefined() {
+		return fmt.Errorf("capability %q does not support command method", name)
+	}
+	if handler == nil {
+		return fmt.Errorf("command handler must be provided for capability %q", name)
+	}
+
+	topic := fmt.Sprintf("%s/command", name)
+	c.commandHandlers[topic] = handler
+	return nil
+}
+
+func (c *Client) RegisterQueryHandler(name string, handler func(msg proto.Message) (json.RawMessage, error)) error {
+	cap, ok := c.capabilities[name]
+	if !ok {
+		return fmt.Errorf("capability %q not found", name)
+	}
+
+	if !cap.Methods.Query.IsDefined() {
+		return fmt.Errorf("capability %q does not support query method", name)
+	}
+	if handler == nil {
+		return fmt.Errorf("query handler must be provided for capability %q", name)
+	}
+
+	topic := fmt.Sprintf("%s/query", name)
+	c.queryHandlers[topic] = handler
+	return nil
 }
 
 func (c *Client) Subscribe(topic string, callbackFn func(msg proto.Message) error) error {
