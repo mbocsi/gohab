@@ -26,7 +26,7 @@ func main() {
 
 	c.Subscribe("temperature", handleSensorTemp)
 
-	err := c.Start("localhost:8080")
+	err := c.Start("localhost:8888")
 	if err != nil {
 		panic(err)
 	}

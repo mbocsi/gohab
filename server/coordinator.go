@@ -3,7 +3,10 @@ package server
 import (
 	"context"
 	"log/slog"
+	"net/http"
 	"sync"
+
+	"github.com/go-chi/chi/v5"
 )
 
 type Coordinator struct {
@@ -11,40 +14,14 @@ type Coordinator struct {
 	Broker     *Broker
 	MCPServer  *MCPServer
 	Transports []Transport
+	Templates  *Templates
 
 	topicSourcesMu sync.RWMutex
 	topicSources   map[string]string // topic → deviceID
 }
 
 func NewCoordinator(registery *DeviceRegistry, broker *Broker, mcpServer *MCPServer) *Coordinator {
-	// if mcpServer != nil {
-	// 	list_clients := mcp.NewTool("list_devices", mcp.WithDescription("Get a list of the devices connected to this server"))
-	// 	mcpServer.AddTool(list_clients, func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	// 		type ClientElement struct {
-	// 			Id   string `json:"id"`
-	// 			Name string `json:"name"`
-	// 		}
-	// 		clients := registery.List()
-	// 		res := make([]ClientElement, 0, len(clients))
-	// 		for _, client := range clients {
-	// 			res = append(res, ClientElement{Id: client.Meta().Id, Name: client.Meta().Name})
-	// 		}
-
-	// 		jsonBytes, err := json.MarshalIndent(res, "", "  ")
-	// 		if err != nil {
-	// 			return nil, err
-	// 		}
-
-	// 		return &mcp.CallToolResult{
-	// 			Content: []mcp.Content{
-	// 				mcp.TextContent{
-	// 					Type: "text",
-	// 					Text: string(jsonBytes),
-	// 				},
-	// 			}}, nil
-	// 	})
-	// }
-	return &Coordinator{Registery: registery, Broker: broker, MCPServer: mcpServer, topicSources: make(map[string]string)}
+	return &Coordinator{Registery: registery, Broker: broker, MCPServer: mcpServer, Templates: NewTemplates("templates/*.html"), topicSources: make(map[string]string)}
 }
 
 func (c *Coordinator) Start(ctx context.Context) error {
@@ -56,20 +33,41 @@ func (c *Coordinator) Start(ctx context.Context) error {
 		go t.Start()
 	}
 
+	server := &http.Server{
+		Addr:    ":8080", // configurable
+		Handler: c.Routes(),
+	}
+
+	go server.ListenAndServe()
+
 	<-ctx.Done()
 	slog.Info("Shutting down transports and server")
 
+	err := server.Shutdown(context.Background())
+	if err != nil {
+		slog.Error("There wan an error when shutting down the Web Server", "error", err.Error())
+	}
+
 	if c.MCPServer != nil {
-		if err := c.MCPServer.Shutdown(); err != nil {
+		if err = c.MCPServer.Shutdown(); err != nil {
 			slog.Error("There was an error when shutting down MCP server", "error", err.Error())
 		}
 	}
 	for _, t := range c.Transports {
-		if err := t.Shutdown(); err != nil {
+		if err = t.Shutdown(); err != nil {
 			slog.Error("There was an error when shutting down transport server", "error", err.Error())
 		}
 	}
 	return nil
+}
+
+func (c *Coordinator) Routes() http.Handler {
+	r := chi.NewRouter()
+	r.Get("/", c.HandleHome)
+	r.Get("/devices", c.HandleDeviceList)
+	r.Get("/devices/{id}", c.HandleDeviceDetail)
+	// r.Post("/devices/{id}/execute", c.HandleExecuteAction)
+	return r
 }
 
 func (c *Coordinator) RegisterTransport(t Transport) {

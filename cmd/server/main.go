@@ -7,7 +7,7 @@ import (
 )
 
 func main() {
-	tcpServer := server.NewTCPTransport("0.0.0.0:8080")
+	tcpServer := server.NewTCPTransport("0.0.0.0:8888")
 	gohabServer := server.NewGohabServer(server.GohabServerOptions{})
 	gohabServer.RegisterTransport(tcpServer)
 

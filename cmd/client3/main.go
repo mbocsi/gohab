@@ -14,7 +14,7 @@ func main() {
 	c := client.NewClient("receiver-b", tcp)
 
 	go func() {
-		err := c.Start("localhost:8080")
+		err := c.Start("localhost:8888")
 		if err != nil {
 			slog.Error("Error when starting client", "error", err.Error())
 		}
