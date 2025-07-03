@@ -74,8 +74,8 @@ func (c *Coordinator) Start(ctx context.Context) error {
 
 func (c *Coordinator) RegisterTransport(t Transport) {
 	t.OnMessage(c.Handle)
-	t.OnConnect((c.RegisterDevice))
-	t.OnDisconnect(func(client Client) { c.Registery.Delete(client.Meta().Id) })
+	t.OnConnect(c.RegisterDevice)
+	t.OnDisconnect(c.RemoveDevice)
 	c.Transports = append(c.Transports, t)
 }
 
@@ -84,4 +84,18 @@ func (c *Coordinator) RegisterDevice(client Client) error {
 
 	slog.Info("Registered client", "id", client.Meta().Id)
 	return nil
+}
+
+func (c *Coordinator) RemoveDevice(client Client) {
+	c.Registery.Delete(client.Meta().Id)
+
+	c.topicSourcesMu.Lock()
+	for _, capability := range client.Meta().Capabilities {
+		if _, ok := c.topicSources[capability.Name]; !ok {
+			slog.Error("Capability name/topic does not exist in topic sources", "topic", capability.Name)
+			continue
+		}
+		delete(c.topicSources, capability.Name)
+	}
+	c.topicSourcesMu.Unlock()
 }
