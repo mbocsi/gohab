@@ -2,11 +2,8 @@ package server
 
 import (
 	"context"
-	"encoding/json"
 	"log/slog"
 	"sync"
-
-	"github.com/mark3labs/mcp-go/mcp"
 )
 
 type Coordinator struct {
@@ -20,33 +17,33 @@ type Coordinator struct {
 }
 
 func NewCoordinator(registery *DeviceRegistry, broker *Broker, mcpServer *MCPServer) *Coordinator {
-	if mcpServer != nil {
-		list_clients := mcp.NewTool("list_devices", mcp.WithDescription("Get a list of the devices connected to this server"))
-		mcpServer.AddTool(list_clients, func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			type ClientElement struct {
-				Id   string `json:"id"`
-				Name string `json:"name"`
-			}
-			clients := registery.List()
-			res := make([]ClientElement, 0, len(clients))
-			for _, client := range clients {
-				res = append(res, ClientElement{Id: client.Meta().Id, Name: client.Meta().Name})
-			}
+	// if mcpServer != nil {
+	// 	list_clients := mcp.NewTool("list_devices", mcp.WithDescription("Get a list of the devices connected to this server"))
+	// 	mcpServer.AddTool(list_clients, func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	// 		type ClientElement struct {
+	// 			Id   string `json:"id"`
+	// 			Name string `json:"name"`
+	// 		}
+	// 		clients := registery.List()
+	// 		res := make([]ClientElement, 0, len(clients))
+	// 		for _, client := range clients {
+	// 			res = append(res, ClientElement{Id: client.Meta().Id, Name: client.Meta().Name})
+	// 		}
 
-			jsonBytes, err := json.MarshalIndent(res, "", "  ")
-			if err != nil {
-				return nil, err
-			}
+	// 		jsonBytes, err := json.MarshalIndent(res, "", "  ")
+	// 		if err != nil {
+	// 			return nil, err
+	// 		}
 
-			return &mcp.CallToolResult{
-				Content: []mcp.Content{
-					mcp.TextContent{
-						Type: "text",
-						Text: string(jsonBytes),
-					},
-				}}, nil
-		})
-	}
+	// 		return &mcp.CallToolResult{
+	// 			Content: []mcp.Content{
+	// 				mcp.TextContent{
+	// 					Type: "text",
+	// 					Text: string(jsonBytes),
+	// 				},
+	// 			}}, nil
+	// 	})
+	// }
 	return &Coordinator{Registery: registery, Broker: broker, MCPServer: mcpServer, topicSources: make(map[string]string)}
 }
 
@@ -85,15 +82,6 @@ func (c *Coordinator) RegisterTransport(t Transport) {
 func (c *Coordinator) RegisterDevice(client Client) error {
 	c.Registery.Store(client)
 
-	c.topicSourcesMu.Lock()
-	for _, capability := range client.Meta().Capabilities {
-		if _, ok := c.topicSources[capability.Name]; ok {
-			slog.Error("Capability name/topic already exists in system: skipping source registration", "topic", capability.Name)
-			continue
-		}
-		c.topicSources[capability.Name] = client.Meta().Id
-	}
-	c.topicSourcesMu.Unlock()
 	slog.Info("Registered client", "id", client.Meta().Id)
 	return nil
 }

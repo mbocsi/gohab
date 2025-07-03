@@ -29,4 +29,5 @@ func main() {
 		slog.Warn("Error when sending request", "error", err.Error())
 	}
 	fmt.Printf("%v\n", msg)
+	fmt.Printf("Payload: %s\n", string(msg.Payload))
 }

@@ -56,7 +56,7 @@ func main() {
 
 	temp := 20.0
 	err = c.RegisterQueryHandler("temperature", func(msg proto.Message) (any, error) {
-		return DataPayload{Temperature: temp, Timestamp: time.Now().GoString()}, nil
+		return DataPayload{Temperature: temp, Timestamp: time.Now().String()}, nil
 	})
 
 	go c.Start("localhost:8080") // Start in background
@@ -64,7 +64,7 @@ func main() {
 	ticker := time.NewTicker(5 * time.Second)
 	for ; ; temp += 0.1 {
 		<-ticker.C
-		dataFn(DataPayload{Temperature: temp, Timestamp: time.Now().GoString()})
+		dataFn(DataPayload{Temperature: temp, Timestamp: time.Now().String()})
 		statusFn(StatusPayload{Status: "ok"})
 	}
 }

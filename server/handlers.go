@@ -55,6 +55,16 @@ func (c *Coordinator) handleIdentify(msg proto.Message) {
 
 	*client.Meta() = newMetadata
 
+	c.topicSourcesMu.Lock()
+	for _, capability := range client.Meta().Capabilities {
+		if _, ok := c.topicSources[capability.Name]; ok {
+			slog.Error("Capability name/topic already exists in system: skipping source registration", "topic", capability.Name)
+			continue
+		}
+		c.topicSources[capability.Name] = client.Meta().Id
+	}
+	c.topicSourcesMu.Unlock()
+
 	ackPayload := proto.IdAckPayload{
 		AssignedId: client.Meta().Id,
 		Status:     "ok",
@@ -72,6 +82,7 @@ func (c *Coordinator) handleIdentify(msg proto.Message) {
 		Sender:    "server",
 		Timestamp: time.Now().Unix(),
 	}
+	slog.Info("Identified client", "id", id)
 	client.Send(ack)
 }
 
