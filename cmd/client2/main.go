@@ -24,7 +24,7 @@ func main() {
 	tcp := client.NewTCPTransport()
 	c := client.NewClient("receiver-a", tcp)
 
-	c.Subscribe("temperature/data", handleSensorTemp)
+	c.Subscribe("temperature", handleSensorTemp)
 
 	err := c.Start("localhost:8080")
 	if err != nil {

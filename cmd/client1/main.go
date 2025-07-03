@@ -8,6 +8,15 @@ import (
 	"github.com/mbocsi/gohab/proto"
 )
 
+type DataPayload struct {
+	Temperature float64 `json:"temperature"`
+	Timestamp   string  `json:"timestamp"`
+}
+
+type StatusPayload struct {
+	Status string `json:"status"`
+}
+
 func main() {
 	slog.Info("Starting client1")
 
@@ -20,13 +29,17 @@ func main() {
 		Methods: proto.CapabilityMethods{
 			Data: proto.Method{Description: "Temperature outside the deck",
 				OutputSchema: map[string]proto.DataType{
-					"temperature": {Type: "number"},
-					"time":        {Type: "string"}}},
+					"temperature": {Type: "number", Unit: "Celcius"},
+					"timestamp":   {Type: "string"}}},
 			Status: proto.Method{
 				Description: "Whether the sensor works or not",
 				OutputSchema: map[string]proto.DataType{
-					"status": {Type: "enum", Enum: []string{"ok", "bad"}},
-				}},
+					"status": {Type: "enum", Enum: []string{"ok", "bad"}}}},
+			Query: proto.Method{
+				Description: "Get the current temperature",
+				OutputSchema: map[string]proto.DataType{
+					"temperature": {Type: "number", Unit: "Calcius"},
+					"timestamp":   {Type: "string"}}},
 		},
 	},
 	)
@@ -41,12 +54,17 @@ func main() {
 		panic(err)
 	}
 
+	temp := 20.0
+	err = c.RegisterQueryHandler("temperature", func(msg proto.Message) (any, error) {
+		return DataPayload{Temperature: temp, Timestamp: time.Now().GoString()}, nil
+	})
+
 	go c.Start("localhost:8080") // Start in background
 
 	ticker := time.NewTicker(5 * time.Second)
-	for temp := 20.0; ; temp += 0.1 {
+	for ; ; temp += 0.1 {
 		<-ticker.C
-		dataFn(temp)
-		statusFn("ok")
+		dataFn(DataPayload{Temperature: temp, Timestamp: time.Now().GoString()})
+		statusFn(StatusPayload{Status: "ok"})
 	}
 }

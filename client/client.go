@@ -7,27 +7,36 @@ import (
 	"maps"
 	"os"
 	"slices"
+	"sync"
 	"time"
 
 	"github.com/mbocsi/gohab/proto"
 )
 
 type Client struct {
-	Name         string
-	Connected    bool
-	transport    Transport
-	Id           string
+	Name      string
+	Connected bool
+	transport Transport
+	Id        string
+
+	// Capabilities
+	capMu        sync.RWMutex
 	capabilities map[string]proto.Capability
 
-	//Handlers for command messages
+	// Handlers
+	handlerMu       sync.RWMutex
 	commandHandlers map[string]func(proto.Message) error
-	queryHandlers   map[string]func(proto.Message) (payload json.RawMessage, err error)
+	queryHandlers   map[string]func(proto.Message) (any, error)
+	subHandlers     map[string]func(proto.Message) error
 
-	// Helpers for publishing data or status
+	// Request/response channels
+	resMu    sync.Mutex
+	resChans map[string]chan proto.Message
+
+	// Publisher functions
+	funcMu      sync.RWMutex
 	dataFuncs   map[string]func(payload any) error
 	statusFuncs map[string]func(payload any) error
-
-	subHandlers map[string]func(proto.Message) error
 }
 
 func NewClient(name string, t Transport) *Client {
@@ -37,7 +46,8 @@ func NewClient(name string, t Transport) *Client {
 		transport:       t,
 		capabilities:    make(map[string]proto.Capability),
 		commandHandlers: make(map[string]func(proto.Message) error),
-		queryHandlers:   make(map[string]func(proto.Message) (payload json.RawMessage, err error)),
+		queryHandlers:   make(map[string]func(proto.Message) (payload any, err error)),
+		resChans:        make(map[string]chan proto.Message),
 		dataFuncs:       make(map[string]func(payload any) error),
 		statusFuncs:     make(map[string]func(payload any) error),
 		subHandlers:     make(map[string]func(proto.Message) error),
@@ -135,7 +145,9 @@ func (c *Client) readLoop() {
 			slog.Warn("Received unexpected identify_ack", "sender", msg.Sender)
 
 		case "command":
+			c.handlerMu.RLock()
 			handler := c.commandHandlers[msg.Topic]
+			c.handlerMu.RUnlock()
 			if handler != nil {
 				err := handler(msg)
 				if err != nil {
@@ -145,14 +157,21 @@ func (c *Client) readLoop() {
 				slog.Warn("Topic not found in query handlers: Ignoring message", "topic", msg.Topic)
 			}
 		case "query":
+			c.handlerMu.RLock()
 			handler := c.queryHandlers[msg.Topic]
+			c.handlerMu.RUnlock()
 			if handler == nil {
 				slog.Warn("Topic not found in query handlers")
 				continue
 			}
-			responsePayload, err := handler(msg)
+			response, err := handler(msg)
 			if err != nil {
 				slog.Warn("An error occured in queryHandler", "topic", msg.Topic, "error", err.Error())
+				continue
+			}
+			responsePayload, err := json.Marshal(response)
+			if err != nil {
+				slog.Warn("An error occured when marshalling response", "topic", msg.Topic, "error", err.Error())
 				continue
 			}
 			responseMsg := proto.Message{Type: "response", Topic: msg.Topic, Recipient: msg.Sender, Payload: responsePayload, Timestamp: time.Now().Unix()}
@@ -162,7 +181,9 @@ func (c *Client) readLoop() {
 			}
 
 		case "data", "status":
+			c.handlerMu.RLock()
 			handler, ok := c.subHandlers[msg.Topic]
+			c.handlerMu.RUnlock()
 			if !ok {
 				slog.Warn("Topic not found in sub handlers")
 			}
@@ -171,9 +192,53 @@ func (c *Client) readLoop() {
 				slog.Warn("An error occured in subHandler", "topic", msg.Topic, "error", err.Error())
 			}
 
+		case "response":
+			c.resMu.Lock()
+			ch, ok := c.resChans[msg.Topic]
+			if ok {
+				ch <- msg
+				close(ch)
+				delete(c.resChans, msg.Topic)
+			}
+			c.resMu.Unlock()
+
 		default:
 			slog.Warn("Unhandled message", "type", msg.Type)
 		}
+	}
+}
+
+func (c *Client) SendQuery(topic string, payload any) (proto.Message, error) {
+
+	rawPayload, err := json.Marshal(payload)
+	if err != nil {
+		return proto.Message{}, err
+	}
+
+	msg := proto.Message{
+		Type:    "query",
+		Topic:   topic,
+		Payload: rawPayload,
+	}
+
+	// Set up a channel to receive the response
+	respChan := make(chan proto.Message, 1)
+
+	c.resMu.Lock()
+	c.resChans[topic] = respChan
+	c.resMu.Unlock()
+
+	err = c.transport.Send(msg)
+	if err != nil {
+		return proto.Message{}, err
+	}
+
+	// Wait for the response or timeout
+	select {
+	case resp := <-respChan:
+		return resp, nil
+	case <-time.After(5 * time.Second):
+		return proto.Message{}, fmt.Errorf("timeout waiting for response")
 	}
 }
 
@@ -222,7 +287,7 @@ func (c *Client) GetDataFunction(name string) (func(payload any) error, error) {
 		}
 		return c.transport.Send(proto.Message{
 			Type:      "data",
-			Topic:     fmt.Sprintf("%s/data", name),
+			Topic:     name,
 			Payload:   binPayload,
 			Timestamp: time.Now().Unix(),
 		})
@@ -249,7 +314,7 @@ func (c *Client) GetStatusFunction(name string) (func(payload any) error, error)
 		}
 		return c.transport.Send(proto.Message{
 			Type:      "status",
-			Topic:     fmt.Sprintf("%s/status", name),
+			Topic:     name,
 			Payload:   binPayload,
 			Timestamp: time.Now().Unix(),
 		})
@@ -272,12 +337,11 @@ func (c *Client) RegisterCommandHandler(name string, handler func(msg proto.Mess
 		return fmt.Errorf("command handler must be provided for capability %q", name)
 	}
 
-	topic := fmt.Sprintf("%s/command", name)
-	c.commandHandlers[topic] = handler
+	c.commandHandlers[name] = handler
 	return nil
 }
 
-func (c *Client) RegisterQueryHandler(name string, handler func(msg proto.Message) (json.RawMessage, error)) error {
+func (c *Client) RegisterQueryHandler(name string, handler func(msg proto.Message) (any, error)) error {
 	cap, ok := c.capabilities[name]
 	if !ok {
 		return fmt.Errorf("capability %q not found", name)
@@ -290,11 +354,11 @@ func (c *Client) RegisterQueryHandler(name string, handler func(msg proto.Messag
 		return fmt.Errorf("query handler must be provided for capability %q", name)
 	}
 
-	topic := fmt.Sprintf("%s/query", name)
-	c.queryHandlers[topic] = handler
+	c.queryHandlers[name] = handler
 	return nil
 }
 
+// Subscribes to all methods (data & status)
 func (c *Client) Subscribe(topic string, callbackFn func(msg proto.Message) error) error {
 	c.subHandlers[topic] = callbackFn
 

@@ -117,4 +117,38 @@ func (c *Coordinator) handleSubscription(msg proto.Message) {
 
 // TODO: Implement these
 func (c *Coordinator) handleCommand(msg proto.Message) {}
-func (c *Coordinator) handleQuery(msg proto.Message)   {}
+
+// TODO: This looks nasty
+func (c *Coordinator) handleQuery(msg proto.Message) {
+	if msg.Type == "query" {
+		c.topicSourcesMu.RLock()
+		if id, ok := c.topicSources[msg.Topic]; !ok {
+			slog.Warn("No source found for the queried topic", "topic", msg.Topic)
+		} else {
+			if client, ok := c.Registery.Get(id); !ok {
+				slog.Error("Client ID not found", "id", id)
+			} else {
+				err := client.Send(msg)
+				if err != nil {
+					slog.Error("Error when forwarding message", "error", err.Error())
+				}
+			}
+		}
+		c.topicSourcesMu.RUnlock()
+	} else {
+		if msg.Recipient == "" {
+			slog.Warn("Recipient is missing in response message", "sender", msg.Sender)
+			return
+		}
+		client, ok := c.Registery.Get(msg.Recipient)
+		if !ok {
+			slog.Warn("Recipient not found in system", "recipient", msg.Recipient)
+			return
+		}
+
+		err := client.Send(msg)
+		if err != nil {
+			slog.Error("An error occured when sending response", "sender", msg.Sender, "recipient", client.Meta().Id)
+		}
+	}
+}

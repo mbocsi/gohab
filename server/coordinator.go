@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"log/slog"
+	"sync"
 
 	"github.com/mark3labs/mcp-go/mcp"
 )
@@ -13,6 +14,9 @@ type Coordinator struct {
 	Broker     *Broker
 	MCPServer  *MCPServer
 	Transports []Transport
+
+	topicSourcesMu sync.RWMutex
+	topicSources   map[string]string // topic → deviceID
 }
 
 func NewCoordinator(registery *DeviceRegistry, broker *Broker, mcpServer *MCPServer) *Coordinator {
@@ -43,8 +47,7 @@ func NewCoordinator(registery *DeviceRegistry, broker *Broker, mcpServer *MCPSer
 				}}, nil
 		})
 	}
-
-	return &Coordinator{Registery: registery, Broker: broker, MCPServer: mcpServer}
+	return &Coordinator{Registery: registery, Broker: broker, MCPServer: mcpServer, topicSources: make(map[string]string)}
 }
 
 func (c *Coordinator) Start(ctx context.Context) error {
@@ -82,6 +85,15 @@ func (c *Coordinator) RegisterTransport(t Transport) {
 func (c *Coordinator) RegisterDevice(client Client) error {
 	c.Registery.Store(client)
 
+	c.topicSourcesMu.Lock()
+	for _, capability := range client.Meta().Capabilities {
+		if _, ok := c.topicSources[capability.Name]; ok {
+			slog.Error("Capability name/topic already exists in system: skipping source registration", "topic", capability.Name)
+			continue
+		}
+		c.topicSources[capability.Name] = client.Meta().Id
+	}
+	c.topicSourcesMu.Unlock()
 	slog.Info("Registered client", "id", client.Meta().Id)
 	return nil
 }
