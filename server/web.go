@@ -38,15 +38,25 @@ func (c *Coordinator) HandleDeviceDetail(w http.ResponseWriter, r *http.Request)
 		http.NotFound(w, r)
 		return
 	}
-	c.Templates.Render(w, "device_detail", map[string]interface{}{
+	c.Templates.Render(w, "content", map[string]interface{}{
 		"Device": device.Meta(),
 	})
 }
 
-func (c *Coordinator) HandleHome(w http.ResponseWriter, r *http.Request) {
+func (c *Coordinator) HandleDevices(w http.ResponseWriter, r *http.Request) {
 	devices := c.Registery.List()
-	c.Templates.Render(w, "index", map[string]interface{}{
+	c.Templates.Render(w, "layout", map[string]interface{}{
 		"Devices":      devices,
 		"TopicSources": c.topicSources,
+	})
+}
+
+func (c *Coordinator) HandleHome(w http.ResponseWriter, r *http.Request) {
+	http.Redirect(w, r, "/devices", http.StatusMovedPermanently)
+}
+
+func (c *Coordinator) HandleTransports(w http.ResponseWriter, r *http.Request) {
+	c.Templates.Render(w, "transports", map[string]interface{}{
+		"Transports": c.Transports,
 	})
 }

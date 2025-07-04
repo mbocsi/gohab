@@ -66,7 +66,9 @@ func (c *Coordinator) Start(ctx context.Context, addr string) error {
 func (c *Coordinator) Routes() http.Handler {
 	r := chi.NewRouter()
 	r.Get("/", c.HandleHome)
+	r.Get("/devices", c.HandleDevices)
 	r.Get("/devices/{id}", c.HandleDeviceDetail)
+	r.Get("/transports", c.HandleTransports)
 	// r.Post("/devices/{id}/execute", c.HandleExecuteAction)
 	return r
 }

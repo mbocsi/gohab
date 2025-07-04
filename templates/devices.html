@@ -1,8 +1,9 @@
-{{ block "devices" . }}
+{{ block "sidebar" . }}
 <h2>Connected Devices</h2>
 <table border="1">
     <thead>
         <tr>
+            <th>Name</th>
             <th>ID</th>
             <th>Actions</th>
         </tr>
@@ -10,11 +11,12 @@
     <tbody>
         {{range .Devices}}
         <tr>
-            <td>{{.Id}}</td>
+            <td>{{ .Name }}</td>
+            <td>{{ .Id }}</td>
             <td>
                 <button
                     hx-get="/devices/{{.Id}}"
-                    hx-target="#device-details"
+                    hx-target="#main-content"
                     hx-swap="innerHTML"
                 >
                     Details
@@ -28,77 +30,4 @@
         {{end}}
     </tbody>
 </table>
-
-<div id="device-details">
-</div>
 {{ end }} 
-
-{{ define "device_detail" }}
-<h2>Device: {{ .Device.Id }}</h2>
-<h3>Capabilities</h3>
-<ul>
-	{{ range .Device.Capabilities }}
-	<li>
-		<strong>{{ .Name }}</strong> - {{ .Description }}
-		<h4>Methods:</h4>
-		<ul>
-			{{ if .Methods.Data.IsDefined }}
-			<li>
-				<strong>Data</strong> - {{ .Methods.Data.Description }}
-				{{ template "method_schema" .Methods.Data }}
-			</li>
-			{{ end }}
-			{{ if .Methods.Status.IsDefined }}
-			<li>
-				<strong>Status</strong> - {{ .Methods.Status.Description }}
-				{{ template "method_schema" .Methods.Status }}
-			</li>
-			{{ end }}
-			{{ if .Methods.Command.IsDefined }}
-			<li>
-				<strong>Command</strong> - {{ .Methods.Command.Description }}
-				{{ template "method_schema" .Methods.Command }}
-			</li>
-			{{ end }}
-			{{ if .Methods.Query.IsDefined }}
-			<li>
-				<strong>Query</strong> - {{ .Methods.Query.Description }}
-				{{ template "method_schema" .Methods.Query }}
-			</li>
-			{{ end }}
-		</ul>
-	</li>
-	{{ end }}
-</ul>
-
-{{ end }}
-
-{{ define "method_schema" }}
-	{{ if .InputSchema }}
-		<h5>Input Schema:</h5>
-		<ul>
-			{{ range $key, $schema := .InputSchema }}
-			<li><strong>{{ $key }}</strong>: {{ $schema.Type }}
-				{{ if $schema.Unit }} (Unit: {{ $schema.Unit }}){{ end }}
-				{{ if $schema.Description }} - {{ $schema.Description }}{{ end }}
-				{{ if $schema.Range }} [Range: {{ index $schema.Range 0 }} - {{ index $schema.Range 1 }}] {{ end }}
-				{{ if $schema.Enum }} [Enum: {{ join $schema.Enum ", " }}] {{ end }}
-			</li>
-			{{ end }}
-		</ul>
-	{{ end }}
-
-	{{ if .OutputSchema }}
-		<h5>Output Schema:</h5>
-		<ul>
-			{{ range $key, $schema := .OutputSchema }}
-			<li><strong>{{ $key }}</strong>: {{ $schema.Type }}
-				{{ if $schema.Unit }} (Unit: {{ $schema.Unit }}){{ end }}
-				{{ if $schema.Description }} - {{ $schema.Description }}{{ end }}
-				{{ if $schema.Range }} [Range: {{ index $schema.Range 0 }} - {{ index $schema.Range 1 }}] {{ end }}
-				{{ if $schema.Enum }} [Enum: {{ join $schema.Enum ", " }}] {{ end }}
-			</li>
-			{{ end }}
-		</ul>
-	{{ end }}
-{{ end }}

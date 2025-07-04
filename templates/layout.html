@@ -1,0 +1,32 @@
+{{ define "layout"}}
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Device Dashboard</title>
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <style>
+        html, body { height: 100%; margin: 0}
+        body { display: flex; flex-direction: column; font: sans-serif}
+        aside { width: 500px; border-right: 1px solid #ccc; padding: 1rem; }
+        main { flex: 1; padding: 1rem; }
+        footer { width: auto; padding: 1rem; border-top: 1px solid #ccc; }
+    </style>
+</head>
+<body>
+    <div style="display: flex; flex-direction: row; flex-grow: 1">
+        <aside>
+            {{ template "sidebar" . }}
+        </aside>
+        <main id="main-content">
+            <h2>Welcome to the Device Dashboard</h2>
+            <p>Select a device from the left.</p>
+        </main>
+    </div>
+    <footer>
+        <div id="transport-info" hx-get="/transports" hx-trigger="load, every 10s" hx-swap="innerHTML">
+            <!-- Transport status will load here -->
+        </div>
+    </footer>
+</body>
+</html>
+{{ end }}
