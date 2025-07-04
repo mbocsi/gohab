@@ -46,14 +46,12 @@ func (c *Coordinator) handleIdentify(msg proto.Message) {
 		return
 	}
 
-	newMetadata := DeviceMetadata{
-		Id:           id,
-		Name:         idPayload.ProposedName,
-		LastSeen:     time.Now(),
-		Firmware:     idPayload.Firmware,
-		Capabilities: idPayload.Capabilities}
-
-	*client.Meta() = newMetadata
+	client.Meta().Mu.Lock()
+	client.Meta().Id = id
+	client.Meta().Name = idPayload.ProposedName
+	client.Meta().Firmware = idPayload.Firmware
+	client.Meta().Capabilities = idPayload.Capabilities
+	client.Meta().Mu.Unlock()
 
 	c.topicSourcesMu.Lock()
 	for _, capability := range client.Meta().Capabilities {
@@ -107,10 +105,17 @@ func (c *Coordinator) handleSubscription(msg proto.Message) {
 			return
 		}
 		var sub proto.SubscriptionPayload
-		json.Unmarshal(msg.Payload, &sub)
+		err := json.Unmarshal(msg.Payload, &sub)
+		if err != nil {
+			slog.Warn("Error unmarshalling subscribe payload", "error", err.Error())
+			return
+		}
+		client.Meta().Mu.Lock()
 		for _, topic := range sub.Topics {
 			c.Broker.Subscribe(topic, client)
+			client.Meta().Subs[topic] = struct{}{}
 		}
+		client.Meta().Mu.Unlock()
 
 	case "unsubscribe":
 		client, ok := c.Registery.Get(msg.Sender)
@@ -119,10 +124,17 @@ func (c *Coordinator) handleSubscription(msg proto.Message) {
 			return
 		}
 		var sub proto.SubscriptionPayload
-		json.Unmarshal(msg.Payload, &sub)
+		err := json.Unmarshal(msg.Payload, &sub)
+		if err != nil {
+			slog.Warn("Error unmarshalling unsubscribe payload", "error", err.Error())
+			return
+		}
+		client.Meta().Mu.Lock()
 		for _, topic := range sub.Topics {
 			c.Broker.Unsubscribe(topic, client)
+			delete(client.Meta().Subs, topic)
 		}
+		client.Meta().Mu.Unlock()
 	}
 }
 

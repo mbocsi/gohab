@@ -3,8 +3,10 @@ package server
 import (
 	"bufio"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net"
+	"sync"
 
 	"github.com/mbocsi/gohab/proto"
 )
@@ -15,27 +17,54 @@ type TCPTransport struct {
 	onMessage    func(proto.Message)
 	onConnect    func(Client) error
 	onDisconnect func(Client)
+
+	name        string
+	description string
+	clients     map[string]Client
+	cmu         sync.RWMutex
+
+	maxClients int
+	connected  bool
 }
 
 func NewTCPTransport(addr string) *TCPTransport {
-	return &TCPTransport{Addr: addr}
+	return &TCPTransport{Addr: addr, maxClients: 16, clients: make(map[string]Client)}
 }
 
 func (t *TCPTransport) Start() error {
 	slog.Info("Starting tcp server", "addr", t.Addr)
 
+	if t.onConnect == nil || t.onDisconnect == nil || t.onMessage == nil {
+		return fmt.Errorf("The OnConnect, OnDisconnect, or OnMessage function is not defined. This transport is likely being called outside of the server coordinator.")
+	}
+
 	l, err := net.Listen("tcp", t.Addr)
 	if err != nil {
-		return nil
+		return err
 	}
 	t.listener = l
-	defer l.Close()
+	t.connected = true
+	defer func() {
+		l.Close()
+		t.connected = false
+	}()
 
 	for {
 		conn, err := t.listener.Accept()
 		if err != nil {
 			return err // exits goroutine when listener is closed
 		}
+
+		t.cmu.RLock()
+		clientCount := len(t.clients)
+		t.cmu.RUnlock()
+
+		if clientCount >= t.maxClients {
+			slog.Warn("Max clients reached, rejecting connection", "remote_addr", conn.RemoteAddr())
+			conn.Close() // Reject connection politely
+			continue
+		}
+
 		go t.handleConnection(conn)
 	}
 }
@@ -44,29 +73,29 @@ func (t *TCPTransport) handleConnection(c net.Conn) {
 	ip := c.RemoteAddr().String()
 	slog.Info("Device connected", "addr", ip)
 
-	id := generateClientId("tcp")
-	client := NewTCPClient(c, DeviceMetadata{Id: id})
+	client := NewTCPClient(c)
 
 	defer func() {
-		if t.onDisconnect != nil {
-			t.onDisconnect(client)
-		} else {
-			panic("TCPTransport callback is not defined")
-		}
-		slog.Info("Device disconnected", "addr", ip, "id", client.Id)
+		t.cmu.Lock()
+		delete(t.clients, client.Id)
+		t.cmu.Unlock()
+
+		t.onDisconnect(client)
+
 		c.Close()
+		slog.Info("Device disconnected", "addr", ip, "id", client.Id)
 	}()
 
 	reader := bufio.NewScanner(c)
 
-	if t.onConnect == nil {
-		panic("TCPTransport onConnect callback is not defined")
-	}
 	err := t.onConnect(client)
 	if err != nil {
 		slog.Error("Failed to register device", "addr", ip, "error", err.Error())
 		return
 	}
+	t.cmu.Lock()
+	t.clients[client.Id] = client
+	t.cmu.Unlock()
 
 	for reader.Scan() {
 		line := reader.Bytes()
@@ -78,11 +107,11 @@ func (t *TCPTransport) handleConnection(c net.Conn) {
 		// Inject client ID into message
 		msg.Sender = client.Id
 		slog.Debug("Message received", "type", msg.Type, "topic", msg.Topic, "sender", msg.Sender, "size", len(msg.Payload))
-		if t.onMessage != nil {
-			t.onMessage(msg)
-		} else {
-			panic("TCPTransport onMessage callback is not defined")
-		}
+		t.onMessage(msg)
+	}
+
+	if err := reader.Err(); err != nil {
+		slog.Warn("Connection error", "addr", ip, "error", err)
 	}
 }
 
@@ -104,4 +133,19 @@ func (t *TCPTransport) OnConnect(fn func(Client) error) {
 
 func (t *TCPTransport) OnDisconnect(fn func(Client)) {
 	t.onDisconnect = fn
+}
+
+func (t *TCPTransport) Meta() TransportMetadata {
+	t.cmu.RLock()
+	clients := t.clients
+	t.cmu.RUnlock()
+	return TransportMetadata{
+		Name:        t.name,
+		Description: t.description,
+		Protocol:    "tcp",
+		Address:     t.Addr,
+		Clients:     clients,
+		MaxClients:  t.maxClients,
+		Connected:   t.connected,
+	}
 }
