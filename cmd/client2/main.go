@@ -13,7 +13,7 @@ func handleSensorTemp(msg proto.Message) error {
 	case "status":
 		fmt.Printf("Received sensor status: %s\n", string(msg.Payload))
 	case "data":
-		fmt.Printf("Received temperataure: %s\n", string(msg.Payload))
+		fmt.Printf("Received temperature: %s\n", string(msg.Payload))
 	}
 	return nil
 }

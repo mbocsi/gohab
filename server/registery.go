@@ -26,10 +26,10 @@ func (r *DeviceRegistry) Get(id string) (Client, bool) {
 	return val, ok
 }
 
-func (r *DeviceRegistry) Delete(id string) Client {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.store[id]
+func (r *DeviceRegistry) Delete(id string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	delete(r.store, id)
 }
 
 func (r *DeviceRegistry) List() []Client {

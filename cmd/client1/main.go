@@ -38,7 +38,7 @@ func main() {
 			Query: proto.Method{
 				Description: "Get the current temperature",
 				OutputSchema: map[string]proto.DataType{
-					"temperature": {Type: "number", Unit: "Calcius"},
+					"temperature": {Type: "number", Unit: "Celcius"},
 					"timestamp":   {Type: "string"}}},
 		},
 	},

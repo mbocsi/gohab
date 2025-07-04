@@ -73,7 +73,7 @@ func (t *TCPTransport) handleConnection(c net.Conn) {
 	ip := c.RemoteAddr().String()
 	slog.Info("Device connected", "addr", ip)
 
-	client := NewTCPClient(c)
+	client := NewTCPClient(c, t)
 
 	defer func() {
 		t.cmu.Lock()

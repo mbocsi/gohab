@@ -14,8 +14,10 @@ type TCPClient struct {
 	mcpServer *MCPServer // Currently not used
 }
 
-func NewTCPClient(conn net.Conn) *TCPClient {
-	return &TCPClient{conn: conn, DeviceMetadata: DeviceMetadata{Id: generateClientId("tcp"), Subs: make(map[string]struct{})}}
+func NewTCPClient(conn net.Conn, t Transport) *TCPClient {
+	return &TCPClient{
+		conn:           conn,
+		DeviceMetadata: DeviceMetadata{Id: generateClientId("tcp"), Subs: make(map[string]struct{}), Transport: t}}
 }
 
 func (c *TCPClient) Send(msg proto.Message) error {

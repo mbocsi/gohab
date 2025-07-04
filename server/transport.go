@@ -35,6 +35,7 @@ type DeviceMetadata struct {
 	Firmware     string
 	Capabilities []proto.Capability
 	Subs         map[string]struct{}
+	Transport    Transport
 	Mu           sync.RWMutex
 }
 
