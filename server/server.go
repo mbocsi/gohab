@@ -18,6 +18,7 @@ type GohabServerOptions struct {
 	Broker    *Broker         // Optional (defaults to new Broker if nil)
 	Registry  *DeviceRegistry // Optional (defaults to new Registry if nil)
 	Context   context.Context // Optional (defaults to context.Background())
+	Addr      string
 }
 
 type GohabServer struct {
@@ -56,10 +57,10 @@ func setupLogger() {
 	slog.SetDefault(slog.New(handler))
 }
 
-func (s *GohabServer) Start() error {
+func (s *GohabServer) Start(addr string) error {
 	setupLogger()
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	s.coordinator.Start(ctx)
+	s.coordinator.Start(ctx, addr)
 	return nil
 }

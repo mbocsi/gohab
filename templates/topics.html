@@ -1,0 +1,27 @@
+{{ block "topics" . }}
+<h2>Topics</h2>
+<table border="1">
+    <thead>
+        <tr>
+            <th>Topic</th>
+            <th>Source</th>
+        </tr>
+    </thead>
+    <tbody>
+        {{ range $topic, $source := .TopicSources }}
+        <tr>
+            <td>
+                {{ $topic }}
+            </td>
+            <td>
+                {{ $source }}
+            </td>
+        </tr>
+        {{else}}
+        <tr>
+            <td colspan="2">No topics defined</td>
+        </tr>
+        {{ end }}
+    </tbody>
+</table>
+{{ end }}

@@ -4,6 +4,7 @@ import (
 	"html/template"
 	"net/http"
 	"path/filepath"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -13,8 +14,12 @@ type Templates struct {
 }
 
 func NewTemplates(pattern string) *Templates {
+	funcMap := template.FuncMap{
+		"join": strings.Join, // lowercase
+	}
+	templates := template.New("").Funcs(funcMap)
 	return &Templates{
-		templates: template.Must(template.ParseGlob(filepath.Clean(pattern))),
+		templates: template.Must(templates.ParseGlob(filepath.Clean(pattern))),
 	}
 }
 
@@ -24,13 +29,6 @@ func (t *Templates) Render(w http.ResponseWriter, name string, data interface{})
 	if err != nil {
 		http.Error(w, "Template rendering error: "+err.Error(), http.StatusInternalServerError)
 	}
-}
-
-func (c *Coordinator) HandleDeviceList(w http.ResponseWriter, r *http.Request) {
-	devices := c.Registery.List()
-	c.Templates.Render(w, "devices", map[string]interface{}{
-		"Devices": devices,
-	})
 }
 
 func (c *Coordinator) HandleDeviceDetail(w http.ResponseWriter, r *http.Request) {
@@ -46,5 +44,9 @@ func (c *Coordinator) HandleDeviceDetail(w http.ResponseWriter, r *http.Request)
 }
 
 func (c *Coordinator) HandleHome(w http.ResponseWriter, r *http.Request) {
-	c.Templates.Render(w, "index", nil)
+	devices := c.Registery.List()
+	c.Templates.Render(w, "index", map[string]interface{}{
+		"Devices":      devices,
+		"TopicSources": c.topicSources,
+	})
 }

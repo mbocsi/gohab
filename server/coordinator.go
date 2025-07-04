@@ -24,7 +24,7 @@ func NewCoordinator(registery *DeviceRegistry, broker *Broker, mcpServer *MCPSer
 	return &Coordinator{Registery: registery, Broker: broker, MCPServer: mcpServer, Templates: NewTemplates("templates/*.html"), topicSources: make(map[string]string)}
 }
 
-func (c *Coordinator) Start(ctx context.Context) error {
+func (c *Coordinator) Start(ctx context.Context, addr string) error {
 	// TODO: Add context to check if go routines exit for some reason
 	if c.MCPServer != nil {
 		go c.MCPServer.Start()
@@ -34,15 +34,17 @@ func (c *Coordinator) Start(ctx context.Context) error {
 	}
 
 	server := &http.Server{
-		Addr:    ":8080", // configurable
+		Addr:    addr, // configurable
 		Handler: c.Routes(),
 	}
 
+	slog.Info("Starting http server", "addr", addr)
 	go server.ListenAndServe()
 
 	<-ctx.Done()
-	slog.Info("Shutting down transports and server")
+	slog.Info("Shutting down transports and servers")
 
+	slog.Info("Shutting down http server", "addr", addr)
 	err := server.Shutdown(context.Background())
 	if err != nil {
 		slog.Error("There wan an error when shutting down the Web Server", "error", err.Error())
@@ -64,7 +66,6 @@ func (c *Coordinator) Start(ctx context.Context) error {
 func (c *Coordinator) Routes() http.Handler {
 	r := chi.NewRouter()
 	r.Get("/", c.HandleHome)
-	r.Get("/devices", c.HandleDeviceList)
 	r.Get("/devices/{id}", c.HandleDeviceDetail)
 	// r.Post("/devices/{id}/execute", c.HandleExecuteAction)
 	return r

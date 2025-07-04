@@ -11,7 +11,7 @@ func main() {
 	gohabServer := server.NewGohabServer(server.GohabServerOptions{})
 	gohabServer.RegisterTransport(tcpServer)
 
-	if err := gohabServer.Start(); err != nil {
+	if err := gohabServer.Start(":8080"); err != nil {
 		slog.Error("Error starting gohab server", "error", err.Error())
 	}
 }
