@@ -1,69 +1,73 @@
 {{ define "content" }}
-<h2>{{ .Device.Name }} - {{ .Device.Id }}</h2>
-<h3>Capabilities</h3>
-<ul>
-	{{ range .Device.Capabilities }}
-	<li>
-		<strong>{{ .Name }}</strong> - {{ .Description }}
-		<h4>Methods:</h4>
-		<ul>
-			{{ if .Methods.Data.IsDefined }}
-			<li>
-				<strong>Data</strong> - {{ .Methods.Data.Description }}
-				{{ template "method_schema" .Methods.Data }}
-			</li>
-			{{ end }}
-			{{ if .Methods.Status.IsDefined }}
-			<li>
-				<strong>Status</strong> - {{ .Methods.Status.Description }}
-				{{ template "method_schema" .Methods.Status }}
-			</li>
-			{{ end }}
-			{{ if .Methods.Command.IsDefined }}
-			<li>
-				<strong>Command</strong> - {{ .Methods.Command.Description }}
-				{{ template "method_schema" .Methods.Command }}
-			</li>
-			{{ end }}
-			{{ if .Methods.Query.IsDefined }}
-			<li>
-				<strong>Query</strong> - {{ .Methods.Query.Description }}
-				{{ template "method_schema" .Methods.Query }}
-			</li>
-			{{ end }}
-		</ul>
-	</li>
-	{{ end }}
-</ul>
-
+<section class="device-details">
+    <h2 class="device-header">
+        {{ .Device.Name }} <small class="device-id">({{ .Device.Id }})</small>
+    </h2>
+    <h3>Capabilities</h3>
+    {{ range .Device.Capabilities }}
+    <article class="capability">
+        <h4 class="capability-name">{{ .Name }}</h4>
+        <p class="capability-desc">{{ .Description }}</p>
+        <h5>Methods:</h5>
+        <ul>
+            {{ if .Methods.Data.IsDefined }}
+            <li>
+                <strong>Data</strong> — {{ .Methods.Data.Description }}
+                {{ template "method_schema" .Methods.Data }}
+            </li>
+            {{ end }}
+            {{ if .Methods.Status.IsDefined }}
+            <li>
+                <strong>Status</strong> — {{ .Methods.Status.Description }}
+                {{ template "method_schema" .Methods.Status }}
+            </li>
+            {{ end }}
+            {{ if .Methods.Command.IsDefined }}
+            <li>
+                <strong>Command</strong> — {{ .Methods.Command.Description }}
+                {{ template "method_schema" .Methods.Command }}
+            </li>
+            {{ end }}
+            {{ if .Methods.Query.IsDefined }}
+            <li>
+                <strong>Query</strong> — {{ .Methods.Query.Description }}
+                {{ template "method_schema" .Methods.Query }}
+            </li>
+            {{ end }}
+        </ul>
+    </article>
+    {{ end }}
+</section>
 {{ end }}
 
 {{ define "method_schema" }}
-	{{ if .InputSchema }}
-		<h5>Input Schema:</h5>
-		<ul>
-			{{ range $key, $schema := .InputSchema }}
-			<li><strong>{{ $key }}</strong>: {{ $schema.Type }}
-				{{ if $schema.Unit }} (Unit: {{ $schema.Unit }}){{ end }}
-				{{ if $schema.Description }} - {{ $schema.Description }}{{ end }}
-				{{ if $schema.Range }} [Range: {{ index $schema.Range 0 }} - {{ index $schema.Range 1 }}] {{ end }}
-				{{ if $schema.Enum }} [Enum: {{ join $schema.Enum ", " }}] {{ end }}
-			</li>
-			{{ end }}
-		</ul>
-	{{ end }}
+    {{ if .InputSchema }}
+    <h6>Input Schema:</h6>
+    <dl class="schema">
+        {{ range $key, $schema := .InputSchema }}
+        <dt><strong>{{ $key }}</strong> <small class="schema-type">({{ $schema.Type }})</small></dt>
+        <dd>
+            {{ if $schema.Unit }}Unit: {{ $schema.Unit }}<br>{{ end }}
+            {{ if $schema.Description }}{{ $schema.Description }}<br>{{ end }}
+            {{ if $schema.Range }}Range: {{ index $schema.Range 0 }} to {{ index $schema.Range 1 }}<br>{{ end }}
+            {{ if $schema.Enum }}Enum: {{ join $schema.Enum ", " }}<br>{{ end }}
+        </dd>
+        {{ end }}
+    </dl>
+    {{ end }}
 
-	{{ if .OutputSchema }}
-		<h5>Output Schema:</h5>
-		<ul>
-			{{ range $key, $schema := .OutputSchema }}
-			<li><strong>{{ $key }}</strong>: {{ $schema.Type }}
-				{{ if $schema.Unit }} (Unit: {{ $schema.Unit }}){{ end }}
-				{{ if $schema.Description }} - {{ $schema.Description }}{{ end }}
-				{{ if $schema.Range }} [Range: {{ index $schema.Range 0 }} - {{ index $schema.Range 1 }}] {{ end }}
-				{{ if $schema.Enum }} [Enum: {{ join $schema.Enum ", " }}] {{ end }}
-			</li>
-			{{ end }}
-		</ul>
-	{{ end }}
+    {{ if .OutputSchema }}
+    <h6>Output Schema:</h6>
+    <dl class="schema">
+        {{ range $key, $schema := .OutputSchema }}
+        <dt><strong>{{ $key }}</strong> <small class="schema-type">({{ $schema.Type }})</small></dt>
+        <dd>
+            {{ if $schema.Unit }}Unit: {{ $schema.Unit }}<br>{{ end }}
+            {{ if $schema.Description }}{{ $schema.Description }}<br>{{ end }}
+            {{ if $schema.Range }}Range: {{ index $schema.Range 0 }} to {{ index $schema.Range 1 }}<br>{{ end }}
+            {{ if $schema.Enum }}Enum: {{ join $schema.Enum ", " }}<br>{{ end }}
+        </dd>
+        {{ end }}
+    </dl>
+    {{ end }}
 {{ end }}

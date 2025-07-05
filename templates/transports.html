@@ -1,8 +1,27 @@
 {{ define "transports" }}
 <h4>Transport Overview</h4>
-<ul>
+<div class="transports">
 {{ range .Transports }}
-    <li>Transport</li>
+    {{ $meta := .Meta }}
+        <div class="transport">
+            <strong>{{ $meta.Name }}</strong> ({{ $meta.Protocol }}) — {{ $meta.Address }}<br>
+            {{ if $meta.Connected }}
+                <span style="color: green;">● Connected</span>
+            {{ else }}
+                <span style="color: red;">● Disconnected</span>
+            {{ end }}
+            <br>
+            Clients: {{ len $meta.Clients }}
+            {{ if gt $meta.MaxClients 0 }}
+                / {{ $meta.MaxClients }}
+            {{ end }}
+            <br>
+            {{ if $meta.Description }}
+                <em>{{ $meta.Description }}</em><br>
+            {{ end }}
+        </div>
+{{ else }}
+    No transports registered.
 {{ end }}
-</ul>
+</div>
 {{ end }}

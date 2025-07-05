@@ -1,6 +1,7 @@
 {{ block "sidebar" . }}
 <h2>Connected Devices</h2>
-<table border="1">
+
+<table>
     <thead>
         <tr>
             <th>Name</th>
@@ -9,13 +10,13 @@
         </tr>
     </thead>
     <tbody>
-        {{range .Devices}}
+        {{ range .Devices }}
         <tr>
             <td>{{ .Name }}</td>
             <td>{{ .Id }}</td>
             <td>
                 <button
-                    hx-get="/devices/{{.Id}}"
+                    hx-get="/devices/{{ .Id }}"
                     hx-target="#main-content"
                     hx-swap="innerHTML"
                 >
@@ -23,11 +24,11 @@
                 </button>
             </td>
         </tr>
-        {{else}}
+        {{ else }}
         <tr>
-            <td colspan="2">No devices connected.</td>
+            <td colspan="3">No devices connected.</td>
         </tr>
-        {{end}}
+        {{ end }}
     </tbody>
 </table>
-{{ end }} 
+{{ end }}

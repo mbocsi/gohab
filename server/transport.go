@@ -15,6 +15,7 @@ type Transport interface {
 	OnDisconnect(func(Client))
 	Shutdown() error
 	Meta() TransportMetadata
+	SetName(name string)
 }
 
 type TransportMetadata struct {

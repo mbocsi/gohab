@@ -149,3 +149,7 @@ func (t *TCPTransport) Meta() TransportMetadata {
 		Connected:   t.connected,
 	}
 }
+
+func (t *TCPTransport) SetName(name string) {
+	t.name = name
+}

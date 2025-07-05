@@ -1,0 +1,128 @@
+/* Base styles */
+html, body {
+    font-family: sans-serif;
+    margin: 0;
+    padding: 0;
+    height: 100%;
+  }
+  body {
+    display: flex;
+    flex-direction: column;
+  }
+  
+  h2, h3, h4 {
+    margin: 1rem 0 0.5rem;
+  }
+
+  h5 {
+    font-size: 1.05rem;
+  }
+  
+  h6 {
+    font-size: 1rem; /* Same as body for clarity */
+  }
+  
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin-bottom: 1rem;
+  }
+  
+  th, td {
+    padding: 0.5rem;
+    border: 1px solid #ccc;
+    text-align: left;
+  }
+  
+  thead {
+    background-color: #f0f0f0;
+  }
+  
+  button {
+    padding: 0.3rem 0.6rem;
+    border: 1px solid #007acc;
+    background-color: #e6f4ff;
+    color: #007acc;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+  }
+  
+  button:hover {
+    background-color: #d0eaff;
+  }
+  
+  aside {
+    padding: 1rem;
+    border-right: 1px solid #ccc;
+  }
+  
+  main {
+    padding: 1rem;
+  }
+  
+  footer {
+    padding: 1rem;
+    border-top: 1px solid #ccc;
+    text-align: center;
+    font-size: 0.9rem;
+    color: #777;
+  }
+
+  .device-details {
+    padding: 1rem;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+  }
+  
+  .device-header {
+    margin-top: 0;
+  }
+  
+  .device-id {
+    font-weight: normal;
+    color: #666;
+  }
+  
+  .capability {
+    margin-bottom: 1.5rem;
+    padding: 0.5rem;
+    border-left: 4px solid #007acc;
+    background-color: #f9f9f9;
+  }
+  
+  .capability-name {
+    margin-top: 0;
+  }
+  
+  .capability-desc {
+    margin: 0 0 0.5rem 0;
+    color: #555;
+  }
+  
+  .schema {
+    margin: 0 0 0.5rem 1rem;
+  }
+  
+  .schema dt {
+    font-weight: bold;
+  }
+  
+  .schema dd {
+    margin-bottom: 0.5rem;
+  }
+  
+  .schema-type {
+    color: #888;
+  }
+
+  .transports {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+  }
+
+  .transport {
+    padding: 1rem;
+  }
