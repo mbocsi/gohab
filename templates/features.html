@@ -1,0 +1,54 @@
+{{ block "feature_list" . }}
+<h2>Features</h2>
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Source</th>
+        </tr>
+    </thead>
+    <tbody>
+    {{ range $name, $source := .Features }}
+        <tr class="device-row" hx-get="/features/{{ $name }}" hx-target="#main-content" hx-swap="innerHTML">
+            <td>
+                {{ $name }} 
+            </td>
+            <td>
+                {{ $source }}
+            </td>
+        </tr>
+
+    {{ else }}
+        <tr> 
+            <td colspan="3">
+                No Features found.
+            </td>
+        </tr>
+    {{ end }}
+    </tbody>
+</table>
+{{ end }}
+
+{{ block "features" . }}
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Features</title>
+    <link rel="stylesheet" href="/assets/css/style.css">
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+</head>
+<body>
+    {{ template "navbar" . }} 
+    <div style="display: flex; flex-direction: row; flex-grow: 1">
+        <aside>
+            {{ template "feature_list" . }}
+        </aside>
+        <main id="main-content">
+            <h2>Welcome to the Features Dashboard</h2>
+            <p>Select a Feature from the left.</p>
+        </main>
+    </div>
+</body>
+</html>
+{{ end }}

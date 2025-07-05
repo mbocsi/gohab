@@ -1,0 +1,31 @@
+{{ define "title" }}Topic Details{{ end }}
+
+{{ define "feature_detail" }}
+<h2>Topic: {{ .Feature.Name }}</h2>
+<p><strong>Source Device:</strong>
+    <a href="/devices/{{ .Topic.SourceDeviceId }}" hx-get="/devices/{{ .Topic.SourceDeviceId }}" hx-target="#main-content" hx-swap="innerHTML">
+        {{ .Topic.SourceDeviceName }}
+    </a>
+</p>
+
+<h3>Subscribers:</h3>
+<ul>
+{{ range .Subscribers }}
+    <li>
+        <a href="/devices/{{ .Id }}" hx-get="/devices/{{ .Id }}" hx-target="#main-content" hx-swap="innerHTML">{{ .Name }}</a>
+    </li>
+{{ else }}
+    <li>No subscribers.</li>
+{{ end }}
+</ul>
+
+<h3>Schema:</h3>
+<pre>{{ .Topic.Schema }}</pre>
+
+<h3>Live Data:</h3>
+<div hx-get="/topics/{{ .Topic.Name }}/live" hx-trigger="every 2s" hx-swap="innerHTML">
+    Loading...
+</div>
+
+<!-- Optional: Form to execute/publish here -->
+{{ end }}

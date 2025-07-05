@@ -1,0 +1,24 @@
+{{ define "layout" }}
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Devices</title>
+    <link rel="stylesheet" href="/assets/css/style.css">
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+</head>
+<body>
+    {{ template "navbar" . }}
+    <div style="display: flex; flex-direction: row; flex-grow: 1">
+        <aside>
+            {{ template "sidebar" . }}
+        </aside>
+        <main id="main-content">
+            {{ block "content" . }} 
+            <h2>Select an item from the left</h2>
+            {{ end }}
+        </main>
+    </div>
+</body>
+</html>
+{{ end }}

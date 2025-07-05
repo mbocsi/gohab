@@ -1,34 +1,37 @@
-{{ block "sidebar" . }}
+{{ define "sidebar" }}
 <h2>Connected Devices</h2>
-
 <table>
     <thead>
         <tr>
             <th>Name</th>
-            <th>ID</th>
-            <th>Actions</th>
+            <th>Id</th>
         </tr>
     </thead>
     <tbody>
-        {{ range .Devices }}
-        <tr>
-            <td>{{ .Name }}</td>
-            <td>{{ .Id }}</td>
+    {{ range .Devices }}
+        <tr >
             <td>
-                <button
-                    hx-get="/devices/{{ .Id }}"
-                    hx-target="#main-content"
-                    hx-swap="innerHTML"
-                >
-                    Details
-                </button>
+                <a href="/devices/{{ .Meta.Id }}"
+                hx-get="/devices/{{ .Meta.Id }}"
+                hx-target="#main-content"
+                hx-swap="innerHTML"
+                hx-push-url="true"
+                class="link">
+                {{ .Meta.Name }}
+             </a>
+            </td>
+            <td>
+                {{ .Meta.Id }}
             </td>
         </tr>
-        {{ else }}
-        <tr>
-            <td colspan="3">No devices connected.</td>
+
+    {{ else }}
+        <tr> 
+            <td colspan="3">
+                No devices found.
+            </td>
         </tr>
-        {{ end }}
+    {{ end }}
     </tbody>
 </table>
 {{ end }}

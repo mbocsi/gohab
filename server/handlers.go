@@ -46,11 +46,16 @@ func (c *Coordinator) handleIdentify(msg proto.Message) {
 		return
 	}
 
+	capabilities := make(map[string]proto.Capability)
+	for _, capability := range idPayload.Capabilities {
+		capabilities[capability.Name] = capability
+	}
+
 	client.Meta().Mu.Lock()
 	client.Meta().Id = id
 	client.Meta().Name = idPayload.ProposedName
 	client.Meta().Firmware = idPayload.Firmware
-	client.Meta().Capabilities = idPayload.Capabilities
+	client.Meta().Capabilities = capabilities
 	client.Meta().Mu.Unlock()
 
 	c.topicSourcesMu.Lock()

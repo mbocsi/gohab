@@ -33,6 +33,11 @@ html, body {
     border: 1px solid #ccc;
     text-align: left;
   }
+
+  tr.device-row:hover {
+    cursor: pointer;
+    background-color: #d0eaff;
+  }
   
   thead {
     background-color: #f0f0f0;

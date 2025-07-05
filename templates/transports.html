@@ -1,27 +1,17 @@
-{{ define "transports" }}
-<h4>Transport Overview</h4>
-<div class="transports">
+{{ define "title" }}Transports{{ end }}
+
+{{ define "content" }}
+<h2>Transports</h2>
+<ul>
 {{ range .Transports }}
-    {{ $meta := .Meta }}
-        <div class="transport">
-            <strong>{{ $meta.Name }}</strong> ({{ $meta.Protocol }}) — {{ $meta.Address }}<br>
-            {{ if $meta.Connected }}
-                <span style="color: green;">● Connected</span>
-            {{ else }}
-                <span style="color: red;">● Disconnected</span>
-            {{ end }}
-            <br>
-            Clients: {{ len $meta.Clients }}
-            {{ if gt $meta.MaxClients 0 }}
-                / {{ $meta.MaxClients }}
-            {{ end }}
-            <br>
-            {{ if $meta.Description }}
-                <em>{{ $meta.Description }}</em><br>
-            {{ end }}
-        </div>
+    <li>
+        <a href="/transports/{{ .Id }}" hx-get="/transports/{{ .Id }}" hx-target="#main-content" hx-swap="innerHTML">
+            {{ .Name }}
+        </a>
+        — Protocol: {{ .Protocol }} — Clients: {{ .ClientCount }}
+    </li>
 {{ else }}
-    No transports registered.
+    <li>No transports found.</li>
 {{ end }}
-</div>
+</ul>
 {{ end }}

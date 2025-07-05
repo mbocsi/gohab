@@ -21,7 +21,7 @@ type Coordinator struct {
 }
 
 func NewCoordinator(registery *DeviceRegistry, broker *Broker, mcpServer *MCPServer) *Coordinator {
-	return &Coordinator{Registery: registery, Broker: broker, MCPServer: mcpServer, Templates: NewTemplates("templates/*.html"), topicSources: make(map[string]string)}
+	return &Coordinator{Registery: registery, Broker: broker, MCPServer: mcpServer, Templates: NewTemplates("templates/layout/*.html"), topicSources: make(map[string]string)}
 }
 
 func (c *Coordinator) Start(ctx context.Context, addr string) error {
@@ -70,6 +70,8 @@ func (c *Coordinator) Routes() http.Handler {
 	r.Get("/devices", c.HandleDevices)
 	r.Get("/devices/{id}", c.HandleDeviceDetail)
 	r.Get("/transports", c.HandleTransports)
+	r.Get("/features", c.HandleFeatures)
+	r.Get("/features/{name}", c.HandleFeatureDetail)
 	// r.Post("/devices/{id}/execute", c.HandleExecuteAction)
 	return r
 }
