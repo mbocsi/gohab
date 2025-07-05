@@ -1,3 +1,5 @@
+{{ define "title" }} Devices {{ end }}
+
 {{ define "sidebar" }}
 <h2>Connected Devices</h2>
 <table>
@@ -9,16 +11,9 @@
     </thead>
     <tbody>
     {{ range .Devices }}
-        <tr >
+        <tr class="device-row" hx-get="/devices/{{ .Meta.Id }}" hx-target="#main-content" hx-swap="innerHTML" hx-push-url="true">
             <td>
-                <a href="/devices/{{ .Meta.Id }}"
-                hx-get="/devices/{{ .Meta.Id }}"
-                hx-target="#main-content"
-                hx-swap="innerHTML"
-                hx-push-url="true"
-                class="link">
                 {{ .Meta.Name }}
-             </a>
             </td>
             <td>
                 {{ .Meta.Id }}

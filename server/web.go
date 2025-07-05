@@ -68,7 +68,9 @@ func (c *Coordinator) HandleDeviceDetail(w http.ResponseWriter, r *http.Request)
 
 		clone, err := c.Templates.ExtendedTemplates("devices")
 		if err != nil {
+			slog.Error("Error when extending templates", "page", "devices")
 			http.Error(w, "Template extension error: "+err.Error(), http.StatusInternalServerError)
+			return
 		}
 		devices := c.Registery.List()
 		clone.RenderPage(w, "device_detail", map[string]interface{}{
@@ -78,7 +80,9 @@ func (c *Coordinator) HandleDeviceDetail(w http.ResponseWriter, r *http.Request)
 	} else {
 		clone, err := c.Templates.ExtendedTemplates("device_detail")
 		if err != nil {
+			slog.Error("Error when extending templates", "page", "device_detail")
 			http.Error(w, "Template extension error: "+err.Error(), http.StatusInternalServerError)
+			return
 		}
 		clone.Render(w, "content", map[string]interface{}{
 			"Device": device.Meta(),
@@ -93,9 +97,11 @@ func (c *Coordinator) HandleDevices(w http.ResponseWriter, r *http.Request) {
 	})
 }
 func (c *Coordinator) HandleFeatures(w http.ResponseWriter, r *http.Request) {
-	c.Templates.Render(w, "features", map[string]any{
+	c.topicSourcesMu.RLock()
+	c.Templates.RenderPage(w, "features", map[string]any{
 		"Features": c.topicSources,
 	})
+	c.topicSourcesMu.RUnlock()
 }
 
 func (c *Coordinator) HandleFeatureDetail(w http.ResponseWriter, r *http.Request) {
@@ -118,6 +124,37 @@ func (c *Coordinator) HandleFeatureDetail(w http.ResponseWriter, r *http.Request
 	c.Broker.mu.RLock()
 	subs := slices.Collect(maps.Keys(c.Broker.subs[topic]))
 	c.Broker.mu.RUnlock()
+
+	fmt.Printf("%v\n", subs)
+
+	if _, ok := r.Header["Hx-Request"]; !ok {
+
+		clone, err := c.Templates.ExtendedTemplates("features")
+		if err != nil {
+			slog.Error("Error when extending templates", "page", "features")
+			http.Error(w, "Template extension error: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		c.topicSourcesMu.RLock()
+		clone.RenderPage(w, "device_detail", map[string]interface{}{
+			"Feature":       client.Meta().Capabilities[topic],
+			"Features":      c.topicSources,
+			"Subscriptions": subs,
+		})
+		c.topicSourcesMu.RUnlock()
+	} else {
+		clone, err := c.Templates.ExtendedTemplates("feature_detail")
+		if err != nil {
+			slog.Error("Error when extending templates", "page", "feature_detail")
+			http.Error(w, "Template extension error: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		clone.Render(w, "content", map[string]interface{}{
+			"Feature":       client.Meta().Capabilities[topic],
+			"Subscriptions": subs,
+		})
+	}
 
 	c.Templates.Render(w, "feature_detail", map[string]any{
 		"Feature":       client.Meta().Capabilities[topic],

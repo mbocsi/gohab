@@ -1,4 +1,6 @@
-{{ block "feature_list" . }}
+{{ define "title" }} Features {{ end }}
+
+{{ define "sidebar" }}
 <h2>Features</h2>
 <table>
     <thead>
@@ -27,28 +29,4 @@
     {{ end }}
     </tbody>
 </table>
-{{ end }}
-
-{{ block "features" . }}
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <title>Features</title>
-    <link rel="stylesheet" href="/assets/css/style.css">
-    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
-</head>
-<body>
-    {{ template "navbar" . }} 
-    <div style="display: flex; flex-direction: row; flex-grow: 1">
-        <aside>
-            {{ template "feature_list" . }}
-        </aside>
-        <main id="main-content">
-            <h2>Welcome to the Features Dashboard</h2>
-            <p>Select a Feature from the left.</p>
-        </main>
-    </div>
-</body>
-</html>
 {{ end }}

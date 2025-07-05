@@ -1,6 +1,4 @@
-{{ define "title" }}Topic Details{{ end }}
-
-{{ define "feature_detail" }}
+{{ define "content" }}
 <h2>Topic: {{ .Feature.Name }}</h2>
 <p><strong>Source Device:</strong>
     <a href="/devices/{{ .Topic.SourceDeviceId }}" hx-get="/devices/{{ .Topic.SourceDeviceId }}" hx-target="#main-content" hx-swap="innerHTML">
@@ -10,9 +8,9 @@
 
 <h3>Subscribers:</h3>
 <ul>
-{{ range .Subscribers }}
+{{ range .Subscriptions }}
     <li>
-        <a href="/devices/{{ .Id }}" hx-get="/devices/{{ .Id }}" hx-target="#main-content" hx-swap="innerHTML">{{ .Name }}</a>
+        <a href="/devices/{{ .Id }}">{{ .Name }}</a>
     </li>
 {{ else }}
     <li>No subscribers.</li>
