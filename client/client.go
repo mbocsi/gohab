@@ -98,7 +98,7 @@ retryIdentify:
 	for {
 		msg, err := c.transport.Read()
 		if err != nil {
-			fmt.Println("read error:", err)
+			slog.Error("read error", "error", err.Error())
 			return
 		}
 		slog.Debug("Message Received", "type", msg.Type, "topic", msg.Topic, "sender", msg.Sender, "size", len(msg.Payload))
@@ -135,7 +135,7 @@ func (c *Client) readLoop() {
 	for {
 		msg, err := c.transport.Read()
 		if err != nil {
-			fmt.Println("read error:", err)
+			slog.Error("read error", "error", err.Error())
 			return
 		}
 		slog.Debug("Message Received", "type", msg.Type, "topic", msg.Topic, "sender", msg.Sender, "size", len(msg.Payload))

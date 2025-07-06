@@ -16,6 +16,7 @@ type Transport interface {
 	Shutdown() error
 	Meta() TransportMetadata
 	SetName(name string)
+	SetDescription(description string)
 }
 
 type TransportMetadata struct {

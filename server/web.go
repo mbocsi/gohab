@@ -1,6 +1,7 @@
 package server
 
 import (
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"log/slog"
@@ -10,8 +11,10 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/mbocsi/gohab/proto"
 )
 
 type Templates struct {
@@ -19,12 +22,24 @@ type Templates struct {
 }
 
 func NewTemplates(pattern string) *Templates {
-	funcMap := template.FuncMap{
-		"join": strings.Join, // lowercase
-	}
-	templates := template.New("").Funcs(funcMap)
+	templates := template.New("").Funcs(TemplateFuncs())
 	return &Templates{
 		templates: template.Must(templates.ParseGlob(filepath.Clean(pattern))),
+	}
+}
+
+func TemplateFuncs() template.FuncMap {
+	return template.FuncMap{
+		"unixTime": func(ts int64) string {
+			return time.Unix(ts, 0).Format("2006-01-02 15:04:05")
+		},
+		"jsonPretty": func(data []byte) string {
+			var out interface{}
+			_ = json.Unmarshal(data, &out)
+			pretty, _ := json.MarshalIndent(out, "", "  ")
+			return string(pretty)
+		},
+		"join": strings.Join,
 	}
 }
 
@@ -126,8 +141,6 @@ func (c *Coordinator) HandleFeatureDetail(w http.ResponseWriter, r *http.Request
 	subs := slices.Collect(maps.Keys(c.Broker.subs[topic]))
 	c.Broker.mu.RUnlock()
 
-	fmt.Printf("%v\n", subs)
-
 	if _, ok := r.Header["Hx-Request"]; !ok {
 
 		clone, err := c.Templates.ExtendedTemplates("features")
@@ -210,6 +223,57 @@ func (c *Coordinator) HandleTransportDetail(w http.ResponseWriter, r *http.Reque
 			"Transport": c.Transports[i].Meta(),
 		})
 	}
+}
+
+func (c *Coordinator) HandleSendMessage(w http.ResponseWriter, r *http.Request) {
+	topic := chi.URLParam(r, "topic")
+	method := chi.URLParam(r, "method")
+
+	var payload map[string]interface{}
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		http.Error(w, "Invalid JSON payload", http.StatusBadRequest)
+		return
+	}
+
+	binPayload, err := json.Marshal(payload)
+	if err != nil {
+		http.Error(w, "Failed to encode payload", http.StatusInternalServerError)
+		return
+	}
+
+	msg := proto.Message{
+		Type:    method,
+		Topic:   topic,
+		Payload: binPayload,
+	}
+
+	c.Handle(msg)
+
+	w.WriteHeader(http.StatusAccepted)
+	fmt.Fprintf(w, "Message sent to %s/%s", topic, method)
+}
+
+func (c *Coordinator) HandleTopicStream(w http.ResponseWriter, r *http.Request) {
+	topic := chi.URLParam(r, "topic")
+
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+
+	_, ok := w.(http.Flusher)
+	if !ok {
+		http.Error(w, "Streaming unsupported", http.StatusInternalServerError)
+		return
+	}
+
+	ctx := r.Context()
+	client := NewSSEClient(ctx, w, topic, *c.Templates)
+	c.Broker.Subscribe(topic, client)
+
+	defer c.Broker.Unsubscribe(topic, client)
+
+	// Keep connection open
+	<-ctx.Done()
 }
 
 func (c *Coordinator) HandleHome(w http.ResponseWriter, r *http.Request) {

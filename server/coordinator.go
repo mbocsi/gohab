@@ -73,6 +73,7 @@ func (c *Coordinator) Routes() http.Handler {
 	r.Get("/features/{name}", c.HandleFeatureDetail)
 	r.Get("/transports", c.HandleTransports)
 	r.Get("/transports/{i}", c.HandleTransportDetail)
+	r.Get("/events/topics/{topic}", c.HandleTopicStream)
 	return r
 }
 

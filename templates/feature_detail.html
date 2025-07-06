@@ -48,6 +48,10 @@
             {{ end }}
         </ul>
     </article>
+    <h3>Live Messages</h2>
+    <div id="messages" hx-ext="sse" sse-connect="/events/topics/{{ .Feature.Name }}" sse-swap="message">
+        <!-- New messages will be appended here -->
+    </div>
 </section>
 {{ end }}
 
