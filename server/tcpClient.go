@@ -25,7 +25,7 @@ func (c *TCPClient) Send(msg proto.Message) error {
 	if err != nil {
 		return err
 	}
-	jsonData = append(jsonData, '\n') // New line to indicate end of message
+	jsonData = append(jsonData, '\n')
 	_, err = c.conn.Write(jsonData)
 	slog.Debug("Sent Message", "to", c.Meta().Id, "type", msg.Type, "topic", msg.Topic, "size", len(msg.Payload))
 	return err

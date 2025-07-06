@@ -253,28 +253,6 @@ func (c *Coordinator) HandleSendMessage(w http.ResponseWriter, r *http.Request) 
 	fmt.Fprintf(w, "Message sent to %s/%s", topic, method)
 }
 
-func (c *Coordinator) HandleTopicStream(w http.ResponseWriter, r *http.Request) {
-	topic := chi.URLParam(r, "topic")
-
-	w.Header().Set("Content-Type", "text/event-stream")
-	w.Header().Set("Cache-Control", "no-cache")
-	w.Header().Set("Connection", "keep-alive")
-
-	_, ok := w.(http.Flusher)
-	if !ok {
-		http.Error(w, "Streaming unsupported", http.StatusInternalServerError)
-		return
-	}
-
-	ctx := r.Context()
-	client := NewSSEClient(ctx, w, topic, *c.Templates)
-	c.Broker.Subscribe(topic, client)
-
-	defer c.Broker.Unsubscribe(topic, client)
-
-	// Keep connection open
-	<-ctx.Done()
-}
 
 func (c *Coordinator) HandleHome(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/devices", http.StatusMovedPermanently)
