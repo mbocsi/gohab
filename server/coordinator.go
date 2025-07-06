@@ -69,10 +69,10 @@ func (c *Coordinator) Routes() http.Handler {
 	r.Get("/", c.HandleHome)
 	r.Get("/devices", c.HandleDevices)
 	r.Get("/devices/{id}", c.HandleDeviceDetail)
-	r.Get("/transports", c.HandleTransports)
 	r.Get("/features", c.HandleFeatures)
 	r.Get("/features/{name}", c.HandleFeatureDetail)
-	// r.Post("/devices/{id}/execute", c.HandleExecuteAction)
+	r.Get("/transports", c.HandleTransports)
+	r.Get("/transports/{i}", c.HandleTransportDetail)
 	return r
 }
 

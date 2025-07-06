@@ -1,21 +1,31 @@
-{{ define "title" }}Transport Details{{ end }}
-
 {{ define "content" }}
-<h2>{{ .Transport.Name }}</h2>
-<p><strong>Protocol:</strong> {{ .Transport.Protocol }}</p>
-<p><strong>Address:</strong> {{ .Transport.Address }}</p>
-<p><strong>Description:</strong> {{ .Transport.Description }}</p>
+<section class="details">
+    <h2 class="details-header">{{ .Transport.Name }}</h2>
 
-<h3>Connected Devices:</h3>
-<ul>
-{{ range .Transport.Devices }}
-    <li>
-        <a href="/devices/{{ .Id }}" hx-get="/devices/{{ .Id }}" hx-target="#main-content" hx-swap="innerHTML">{{ .Name }}</a>
-    </li>
-{{ else }}
-    <li>No connected devices.</li>
-{{ end }}
-</ul>
+    <ul>
+        <li><strong>Protocol:</strong> {{ .Transport.Protocol }}</li>
+        <li><strong>Address:</strong> {{ .Transport.Address }}</li>
+        <li><strong>Description:</strong> {{ .Transport.Description }}</li>
+        <li><strong>Status:</strong> {{ if .Transport.Connected }}Connected{{ else }}Disconnected{{ end }}</li>
+        <li><strong>Max Clients:</strong> {{ .Transport.MaxClients }}</li>
+        <li><strong>Current Clients:</strong> {{ len .Transport.Clients }}</li>
+    </ul>
 
-<!-- Optional: Edit transport form here -->
+    <h3>Connected Devices:</h3>
+    <ul>
+    {{ range $id, $client := .Transport.Clients }}
+        <li>
+            <a href="/devices/{{ $client.Meta.Id }}"
+            hx-get="/devices/{{ $client.Meta.Id }}"
+            hx-target="#main-content"
+            hx-swap="innerHTML"
+            hx-push-url="true">
+                {{ $client.Meta.Name }}
+            </a>
+        </li>
+    {{ else }}
+        <li>No connected devices.</li>
+    {{ end }}
+    </ul>
+</section>
 {{ end }}

@@ -6,12 +6,12 @@
     <thead>
         <tr>
             <th>Name</th>
-            <th>Source</th>
+            <th>Source Id</th>
         </tr>
     </thead>
     <tbody>
     {{ range $name, $source := .Features }}
-        <tr class="device-row" hx-get="/features/{{ $name }}" hx-target="#main-content" hx-swap="innerHTML">
+        <tr class="device-row" hx-get="/features/{{ $name }}" hx-target="#main-content" hx-swap="innerHTML" hx-push-url="true">
             <td>
                 {{ $name }} 
             </td>

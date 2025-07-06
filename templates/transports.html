@@ -1,17 +1,33 @@
 {{ define "title" }}Transports{{ end }}
 
-{{ define "content" }}
+{{ define "sidebar" }}
 <h2>Transports</h2>
-<ul>
-{{ range .Transports }}
-    <li>
-        <a href="/transports/{{ .Id }}" hx-get="/transports/{{ .Id }}" hx-target="#main-content" hx-swap="innerHTML">
-            {{ .Name }}
-        </a>
-        — Protocol: {{ .Protocol }} — Clients: {{ .ClientCount }}
-    </li>
-{{ else }}
-    <li>No transports found.</li>
-{{ end }}
-</ul>
+
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Protocol</th>
+        </tr>
+    </thead>
+    <tbody>
+    {{ range $i, $transport := .Transports }}
+        <tr class="device-row" hx-get="/transports/{{ $i }}" hx-target="#main-content" hx-swap="innerHTML" hx-push-url="true">
+            <td>
+                {{ $transport.Meta.Name }}
+            </td>
+            <td>
+                {{ $transport.Meta.Protocol }}
+            </td>
+        </tr>
+
+    {{ else }}
+        <tr> 
+            <td colspan="3">
+                No Transports found.
+            </td>
+        </tr>
+    {{ end }}
+    </tbody>
+</table>
 {{ end }}

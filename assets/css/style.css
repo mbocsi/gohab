@@ -60,6 +60,7 @@ html, body {
   aside {
     padding: 1rem;
     border-right: 1px solid #ccc;
+    min-width: 500px;
   }
   
   main {
@@ -74,14 +75,14 @@ html, body {
     color: #777;
   }
 
-  .device-details {
+  .details {
     padding: 1rem;
     border: 1px solid #ccc;
     border-radius: 8px;
     margin-bottom: 1rem;
   }
   
-  .device-header {
+  .details-header {
     margin-top: 0;
   }
   
@@ -90,18 +91,18 @@ html, body {
     color: #666;
   }
   
-  .capability {
+  .feature {
     margin-bottom: 1.5rem;
     padding: 0.5rem;
     border-left: 4px solid #007acc;
     background-color: #f9f9f9;
   }
   
-  .capability-name {
+  .feature-name {
     margin-top: 0;
   }
   
-  .capability-desc {
+  .feature-desc {
     margin: 0 0 0.5rem 0;
     color: #555;
   }
@@ -120,14 +121,4 @@ html, body {
   
   .schema-type {
     color: #888;
-  }
-
-  .transports {
-    display: flex;
-    flex-direction: row;
-    justify-content: center;
-  }
-
-  .transport {
-    padding: 1rem;
   }

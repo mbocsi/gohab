@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
@@ -137,8 +138,13 @@ func (c *Coordinator) HandleFeatureDetail(w http.ResponseWriter, r *http.Request
 		}
 
 		c.topicSourcesMu.RLock()
+		source, ok := c.Registery.Get(c.topicSources[topic])
+		if !ok {
+			slog.Error("Did not find client in registery from topic sources", "client id", c.topicSources[topic])
+		}
 		clone.RenderPage(w, "device_detail", map[string]interface{}{
 			"Feature":       client.Meta().Capabilities[topic],
+			"FeatureSource": source.Meta(),
 			"Features":      c.topicSources,
 			"Subscriptions": subs,
 		})
@@ -150,24 +156,62 @@ func (c *Coordinator) HandleFeatureDetail(w http.ResponseWriter, r *http.Request
 			http.Error(w, "Template extension error: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
+		c.topicSourcesMu.RLock()
+		source, ok := c.Registery.Get(c.topicSources[topic])
+		if !ok {
+			slog.Error("Did not find client in registery from topic sources", "client id", c.topicSources[topic])
+		}
 		clone.Render(w, "content", map[string]interface{}{
 			"Feature":       client.Meta().Capabilities[topic],
+			"FeatureSource": source.Meta(),
 			"Subscriptions": subs,
 		})
+		c.topicSourcesMu.RUnlock()
 	}
+}
 
-	c.Templates.Render(w, "feature_detail", map[string]any{
-		"Feature":       client.Meta().Capabilities[topic],
-		"Subscriptions": subs,
+func (c *Coordinator) HandleTransports(w http.ResponseWriter, r *http.Request) {
+	c.Templates.RenderPage(w, "transports", map[string]interface{}{
+		"Transports": c.Transports,
 	})
+}
+
+func (c *Coordinator) HandleTransportDetail(w http.ResponseWriter, r *http.Request) {
+	index := chi.URLParam(r, "i")
+	i, err := strconv.Atoi(index)
+	if err != nil {
+		slog.Warn("Error converting transport index into int", "index", index)
+		http.Error(w, "Invalid transport index: "+index, http.StatusBadRequest)
+		return
+	}
+	if _, ok := r.Header["Hx-Request"]; !ok {
+
+		clone, err := c.Templates.ExtendedTemplates("transports")
+		if err != nil {
+			slog.Error("Error when extending templates", "page", "transports")
+			http.Error(w, "Template extension error: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		c.topicSourcesMu.RLock()
+		clone.RenderPage(w, "transport_detail", map[string]interface{}{
+			"Transports": c.Transports,
+			"Transport":  c.Transports[i].Meta(),
+		})
+		c.topicSourcesMu.RUnlock()
+	} else {
+		clone, err := c.Templates.ExtendedTemplates("transport_detail")
+		if err != nil {
+			slog.Error("Error when extending templates", "page", "transport_detail")
+			http.Error(w, "Template extension error: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		clone.Render(w, "content", map[string]interface{}{
+			"Transport": c.Transports[i].Meta(),
+		})
+	}
 }
 
 func (c *Coordinator) HandleHome(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/devices", http.StatusMovedPermanently)
-}
-
-func (c *Coordinator) HandleTransports(w http.ResponseWriter, r *http.Request) {
-	c.Templates.Render(w, "transports", map[string]interface{}{
-		"Transports": c.Transports,
-	})
 }

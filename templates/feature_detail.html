@@ -1,29 +1,84 @@
 {{ define "content" }}
-<h2>Topic: {{ .Feature.Name }}</h2>
-<p><strong>Source Device:</strong>
-    <a href="/devices/{{ .Topic.SourceDeviceId }}" hx-get="/devices/{{ .Topic.SourceDeviceId }}" hx-target="#main-content" hx-swap="innerHTML">
-        {{ .Topic.SourceDeviceName }}
-    </a>
-</p>
+<section class="details">
+    <h2 class="details-header">Topic: {{ .Feature.Name }}</h2>
+    <p><strong>Source Device:</strong>
+        <a href="/devices/{{ .FeatureSource.Id }}" hx-get="/devices/{{ .FeatureSource.Id }}" hx-target="#main-content" hx-swap="innerHTML" hx-push-url="true">
+            {{ .FeatureSource.Name }}
+        </a>
+    </p>
 
-<h3>Subscribers:</h3>
-<ul>
-{{ range .Subscriptions }}
-    <li>
-        <a href="/devices/{{ .Id }}">{{ .Name }}</a>
-    </li>
-{{ else }}
-    <li>No subscribers.</li>
+    <h3>Subscribers:</h3>
+    <ul>
+    {{ range .Subscriptions }}
+        <li>
+            <a href="/devices/{{ .Id }}" hx-get="/devices/{{ .Id }}" hx-target="#main-content" hx-swap="innerHTML" hx-push-url="true">{{ .Name }}</a>
+        </li>
+    {{ else }}
+        <li>No subscribers.</li>
+    {{ end }}
+    </ul>
+    <article class="feature">
+        <h4 class="feature-name">{{ .Feature.Name }}</h4>
+        <p class="feature-desc">{{ .Feature.Description }}</p>
+        <h5>Methods:</h5>
+        <ul>
+            {{ if .Feature.Methods.Data.IsDefined }}
+            <li>
+                <strong>Data</strong> — {{ .Feature.Methods.Data.Description }}
+                {{ template "method_schema" .Feature.Methods.Data }}
+            </li>
+            {{ end }}
+            {{ if .Feature.Methods.Status.IsDefined }}
+            <li>
+                <strong>Status</strong> — {{ .Feature.Methods.Status.Description }}
+                {{ template "method_schema" .Feature.Methods.Status }}
+            </li>
+            {{ end }}
+            {{ if .Feature.Methods.Command.IsDefined }}
+            <li>
+                <strong>Command</strong> — {{ .Feature.Methods.Command.Description }}
+                {{ template "method_schema" .Feature.Methods.Command }}
+            </li>
+            {{ end }}
+            {{ if .Feature.Methods.Query.IsDefined }}
+            <li>
+                <strong>Query</strong> — {{ .Feature.Methods.Query.Description }}
+                {{ template "method_schema" .Feature.Methods.Query }}
+            </li>
+            {{ end }}
+        </ul>
+    </article>
+</section>
 {{ end }}
-</ul>
 
-<h3>Schema:</h3>
-<pre>{{ .Topic.Schema }}</pre>
+{{ define "method_schema" }}
+    {{ if .InputSchema }}
+    <h6>Input Schema:</h6>
+    <dl class="schema">
+        {{ range $key, $schema := .InputSchema }}
+        <dt><strong>{{ $key }}</strong> <small class="schema-type">({{ $schema.Type }})</small></dt>
+        <dd>
+            {{ if $schema.Unit }}Unit: {{ $schema.Unit }}<br>{{ end }}
+            {{ if $schema.Description }}{{ $schema.Description }}<br>{{ end }}
+            {{ if $schema.Range }}Range: {{ index $schema.Range 0 }} to {{ index $schema.Range 1 }}<br>{{ end }}
+            {{ if $schema.Enum }}Enum: {{ join $schema.Enum ", " }}<br>{{ end }}
+        </dd>
+        {{ end }}
+    </dl>
+    {{ end }}
 
-<h3>Live Data:</h3>
-<div hx-get="/topics/{{ .Topic.Name }}/live" hx-trigger="every 2s" hx-swap="innerHTML">
-    Loading...
-</div>
-
-<!-- Optional: Form to execute/publish here -->
+    {{ if .OutputSchema }}
+    <h6>Output Schema:</h6>
+    <dl class="schema">
+        {{ range $key, $schema := .OutputSchema }}
+        <dt><strong>{{ $key }}</strong> <small class="schema-type">({{ $schema.Type }})</small></dt>
+        <dd>
+            {{ if $schema.Unit }}Unit: {{ $schema.Unit }}<br>{{ end }}
+            {{ if $schema.Description }}{{ $schema.Description }}<br>{{ end }}
+            {{ if $schema.Range }}Range: {{ index $schema.Range 0 }} to {{ index $schema.Range 1 }}<br>{{ end }}
+            {{ if $schema.Enum }}Enum: {{ join $schema.Enum ", " }}<br>{{ end }}
+        </dd>
+        {{ end }}
+    </dl>
+    {{ end }}
 {{ end }}
