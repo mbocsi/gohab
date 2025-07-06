@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"log/slog"
 
@@ -18,15 +19,42 @@ func handleSensorTemp(msg proto.Message) error {
 	return nil
 }
 
+func handleDisplayCommand(msg proto.Message) error {
+	type inputSchema struct {
+		Brightness float64 `json:"brightness"`
+	}
+	command := &inputSchema{}
+	err := json.Unmarshal(msg.Payload, command)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("Setting brightness to %f\n", command.Brightness)
+	return nil
+}
+
 func main() {
 	slog.Info("Starting client2")
 
 	tcp := client.NewTCPTransport()
-	c := client.NewClient("receiver-a", tcp)
+	c := client.NewClient("display-a", tcp)
 
+	err := c.AddCapability(proto.Capability{
+		Name:        "display_temperature",
+		Description: "The temperature field of the display in the living room",
+		Methods: proto.CapabilityMethods{
+			Command: proto.Method{
+				Description: "Set the color of the temperature field on the display",
+				InputSchema: map[string]proto.DataType{
+					"brightness": {Type: "number", Range: []float64{0, 100}},
+				},
+			},
+		}},
+	)
+
+	c.RegisterCommandHandler("display_temperature", handleDisplayCommand)
 	c.Subscribe("temperature", handleSensorTemp)
 
-	err := c.Start("localhost:8888")
+	err = c.Start("localhost:8888")
 	if err != nil {
 		panic(err)
 	}

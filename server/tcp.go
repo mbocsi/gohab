@@ -153,3 +153,11 @@ func (t *TCPTransport) Meta() TransportMetadata {
 func (t *TCPTransport) SetName(name string) {
 	t.name = name
 }
+
+func (t *TCPTransport) SetMaxClients(n int) {
+	t.maxClients = n
+}
+
+func (t *TCPTransport) SetDescription(description string) {
+	t.description = description
+}

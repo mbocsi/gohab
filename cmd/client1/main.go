@@ -2,6 +2,7 @@ package main
 
 import (
 	"log/slog"
+	"math/rand"
 	"time"
 
 	"github.com/mbocsi/gohab/client"
@@ -54,7 +55,7 @@ func main() {
 		panic(err)
 	}
 
-	temp := 20.0
+	temp := rand.Float64()*5 + 17
 	err = c.RegisterQueryHandler("temperature", func(msg proto.Message) (any, error) {
 		return DataPayload{Temperature: temp, Timestamp: time.Now().String()}, nil
 	})
@@ -62,9 +63,14 @@ func main() {
 	go c.Start("localhost:8888") // Start in background
 
 	ticker := time.NewTicker(5 * time.Second)
-	for ; ; temp += 0.1 {
+	for {
 		<-ticker.C
+		temp = rand.Float64()*5 + 17
 		dataFn(DataPayload{Temperature: temp, Timestamp: time.Now().String()})
 		statusFn(StatusPayload{Status: "ok"})
+		brightness := rand.Float64() * 100
+		c.SendCommand("display_temperature", struct {
+			Brightness float64 `json:"brightness"`
+		}{brightness})
 	}
 }

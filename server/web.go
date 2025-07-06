@@ -142,7 +142,7 @@ func (c *Coordinator) HandleFeatureDetail(w http.ResponseWriter, r *http.Request
 		if !ok {
 			slog.Error("Did not find client in registery from topic sources", "client id", c.topicSources[topic])
 		}
-		clone.RenderPage(w, "device_detail", map[string]interface{}{
+		clone.RenderPage(w, "feature_detail", map[string]interface{}{
 			"Feature":       client.Meta().Capabilities[topic],
 			"FeatureSource": source.Meta(),
 			"Features":      c.topicSources,

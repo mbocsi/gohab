@@ -242,6 +242,20 @@ func (c *Client) SendQuery(topic string, payload any) (proto.Message, error) {
 	}
 }
 
+func (c *Client) SendCommand(topic string, payload any) error {
+	rawPayload, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+	msg := proto.Message{
+		Type:    "command",
+		Topic:   topic,
+		Payload: rawPayload,
+	}
+	err = c.transport.Send(msg)
+	return err
+}
+
 func (c *Client) sendIdentify() error {
 	idPayload := proto.IdentifyPayload{
 		ProposedName: c.Name,

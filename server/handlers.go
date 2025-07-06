@@ -144,7 +144,22 @@ func (c *Coordinator) handleSubscription(msg proto.Message) {
 }
 
 // TODO: Implement these
-func (c *Coordinator) handleCommand(msg proto.Message) {}
+func (c *Coordinator) handleCommand(msg proto.Message) {
+	c.topicSourcesMu.RLock()
+	if id, ok := c.topicSources[msg.Topic]; !ok {
+		slog.Warn("No source found for the commanded topic", "topic", msg.Topic)
+	} else {
+		if client, ok := c.Registery.Get(id); !ok {
+			slog.Error("Client ID not found", "id", id)
+		} else {
+			err := client.Send(msg)
+			if err != nil {
+				slog.Error("Error when forwarding message", "error", err.Error())
+			}
+		}
+	}
+	c.topicSourcesMu.RUnlock()
+}
 
 // TODO: This looks nasty
 func (c *Coordinator) handleQuery(msg proto.Message) {
