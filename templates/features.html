@@ -10,13 +10,13 @@
         </tr>
     </thead>
     <tbody>
-    {{ range $name, $source := .Features }}
+    {{ range $name, $feature := .Features }}
         <tr class="device-row" hx-get="/features/{{ $name }}" hx-target="#main-content" hx-swap="innerHTML" hx-push-url="true">
             <td>
                 {{ $name }} 
             </td>
             <td>
-                {{ $source }}
+                {{ $feature.SourceName }}
             </td>
         </tr>
 

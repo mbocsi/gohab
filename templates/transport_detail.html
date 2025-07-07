@@ -3,24 +3,24 @@
     <h2 class="details-header">{{ .Transport.Name }}</h2>
 
     <ul>
-        <li><strong>Protocol:</strong> {{ .Transport.Protocol }}</li>
+        <li><strong>Protocol:</strong> {{ .Transport.Type }}</li>
         <li><strong>Address:</strong> {{ .Transport.Address }}</li>
         <li><strong>Description:</strong> {{ .Transport.Description }}</li>
         <li><strong>Status:</strong> {{ if .Transport.Connected }}Connected{{ else }}Disconnected{{ end }}</li>
         <li><strong>Max Clients:</strong> {{ .Transport.MaxClients }}</li>
-        <li><strong>Current Clients:</strong> {{ len .Transport.Clients }}</li>
+        <li><strong>Current Clients:</strong> {{ .Transport.Connections }}</li>
     </ul>
 
     <h3>Connected Devices:</h3>
     <ul>
     {{ range $id, $client := .Transport.Clients }}
         <li>
-            <a href="/devices/{{ $client.Meta.Id }}"
-            hx-get="/devices/{{ $client.Meta.Id }}"
+            <a href="/devices/{{ $client.ID }}"
+            hx-get="/devices/{{ $client.ID }}"
             hx-target="#main-content"
             hx-swap="innerHTML"
             hx-push-url="true">
-                {{ $client.Meta.Name }}
+                {{ $client.Name }}
             </a>
         </li>
     {{ else }}

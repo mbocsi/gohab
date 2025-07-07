@@ -11,13 +11,13 @@
         </tr>
     </thead>
     <tbody>
-    {{ range $i, $transport := .Transports }}
-        <tr class="device-row" hx-get="/transports/{{ $i }}" hx-target="#main-content" hx-swap="innerHTML" hx-push-url="true">
+    {{ range $transport := .Transports }}
+        <tr class="device-row" hx-get="/transports/{{ $transport.Index }}" hx-target="#main-content" hx-swap="innerHTML" hx-push-url="true">
             <td>
-                {{ $transport.Meta.Name }}
+                {{ $transport.Name }}
             </td>
             <td>
-                {{ $transport.Meta.Protocol }}
+                {{ $transport.Type }}
             </td>
         </tr>
 

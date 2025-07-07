@@ -37,11 +37,23 @@ func convertTransportMeta(index int, transport server.Transport) TransportInfo {
 		status = "connected"
 	}
 
+	// Convert clients to DeviceInfo
+	clients := make(map[string]DeviceInfo)
+	for id, client := range meta.Clients {
+		clients[id] = convertDeviceMetadata(client.Meta())
+	}
+	
 	return TransportInfo{
 		Index:       index,
+		Name:        meta.Name,
 		Type:        meta.Protocol,
+		Address:     meta.Address,
+		Description: meta.Description,
 		Status:      status,
+		Connected:   meta.Connected,
+		MaxClients:  meta.MaxClients,
 		Connections: len(meta.Clients),
+		Clients:     clients,
 	}
 }
 

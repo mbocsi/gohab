@@ -11,12 +11,12 @@
     </thead>
     <tbody>
     {{ range .Devices }}
-        <tr class="device-row" hx-get="/devices/{{ .Meta.Id }}" hx-target="#main-content" hx-swap="innerHTML" hx-push-url="true">
+        <tr class="device-row" hx-get="/devices/{{ .ID }}" hx-target="#main-content" hx-swap="innerHTML" hx-push-url="true">
             <td>
-                {{ .Meta.Name }}
+                {{ .Name }}
             </td>
             <td>
-                {{ .Meta.Id }}
+                {{ .ID }}
             </td>
         </tr>
 

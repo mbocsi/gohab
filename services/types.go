@@ -25,10 +25,16 @@ type FeatureInfo struct {
 
 // TransportInfo represents transport connection information
 type TransportInfo struct {
-	Index       int    `json:"index"`
-	Type        string `json:"type"`
-	Status      string `json:"status"`
-	Connections int    `json:"connections"`
+	Index       int                 `json:"index"`
+	Name        string              `json:"name"`
+	Type        string              `json:"type"`
+	Address     string              `json:"address"`
+	Description string              `json:"description"`
+	Status      string              `json:"status"`
+	Connected   bool                `json:"connected"`
+	MaxClients  int                 `json:"max_clients"`
+	Connections int                 `json:"connections"`
+	Clients     map[string]DeviceInfo `json:"clients"`
 }
 
 

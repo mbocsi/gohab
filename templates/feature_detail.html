@@ -2,8 +2,8 @@
 <section class="details">
     <h2 class="details-header">Topic: {{ .Feature.Name }}</h2>
     <p><strong>Source Device:</strong>
-        <a href="/devices/{{ .FeatureSource.Id }}" hx-get="/devices/{{ .FeatureSource.Id }}" hx-target="#main-content" hx-swap="innerHTML" hx-push-url="true">
-            {{ .FeatureSource.Name }}
+        <a href="/devices/{{ .FeatureSource.SourceID }}" hx-get="/devices/{{ .FeatureSource.SourceID }}" hx-target="#main-content" hx-swap="innerHTML" hx-push-url="true">
+            {{ .FeatureSource.SourceName }}
         </a>
     </p>
 
@@ -11,7 +11,7 @@
     <ul>
     {{ range .Subscriptions }}
         <li>
-            <a href="/devices/{{ .Id }}" hx-get="/devices/{{ .Id }}" hx-target="#main-content" hx-swap="innerHTML" hx-push-url="true">{{ .Name }}</a>
+            <a href="/devices/{{ .ID }}" hx-get="/devices/{{ .ID }}" hx-target="#main-content" hx-swap="innerHTML" hx-push-url="true">{{ .Name }}</a>
         </li>
     {{ else }}
         <li>No subscribers.</li>
