@@ -6,25 +6,25 @@ import (
 
 // FeatureServiceImpl implements FeatureService
 type FeatureServiceImpl struct {
-	registry     *server.DeviceRegistry
-	broker       *server.Broker
-	topicSources map[string]string
+	registry        *server.DeviceRegistry
+	broker          *server.Broker
+	getTopicSources func() map[string]string
 }
 
 // NewFeatureService creates a new feature service
-func NewFeatureService(registry *server.DeviceRegistry, broker *server.Broker, topicSources map[string]string) FeatureService {
+func NewFeatureService(registry *server.DeviceRegistry, broker *server.Broker, topicSources func() map[string]string) FeatureService {
 	return &FeatureServiceImpl{
-		registry:     registry,
-		broker:       broker,
-		topicSources: topicSources,
+		registry:        registry,
+		broker:          broker,
+		getTopicSources: topicSources,
 	}
 }
 
 // ListFeatures returns all available features
 func (fs *FeatureServiceImpl) ListFeatures() (map[string]FeatureInfo, error) {
 	features := make(map[string]FeatureInfo)
-	
-	for topic := range fs.topicSources {
+
+	for topic := range fs.getTopicSources() {
 		feature, err := fs.GetFeature(topic)
 		if err != nil {
 			// Skip features that can't be retrieved
@@ -32,20 +32,20 @@ func (fs *FeatureServiceImpl) ListFeatures() (map[string]FeatureInfo, error) {
 		}
 		features[topic] = *feature
 	}
-	
+
 	return features, nil
 }
 
 // GetFeature returns a specific feature by topic
 func (fs *FeatureServiceImpl) GetFeature(topic string) (*FeatureInfo, error) {
-	sourceID, exists := fs.topicSources[topic]
+	sourceID, exists := fs.getTopicSources()[topic]
 	if !exists {
 		return nil, ServiceError{
 			Code:    ErrCodeNotFound,
 			Message: "Feature not found: " + topic,
 		}
 	}
-	
+
 	device, exists := fs.registry.Get(sourceID)
 	if !exists {
 		return nil, ServiceError{
@@ -53,7 +53,7 @@ func (fs *FeatureServiceImpl) GetFeature(topic string) (*FeatureInfo, error) {
 			Message: "Feature source device not found: " + sourceID,
 		}
 	}
-	
+
 	meta := device.Meta()
 	meta.Mu.RLock()
 	capability, exists := meta.Capabilities[topic]
@@ -66,14 +66,14 @@ func (fs *FeatureServiceImpl) GetFeature(topic string) (*FeatureInfo, error) {
 	}
 	sourceName := meta.Name
 	meta.Mu.RUnlock()
-	
+
 	// Get subscribers
 	subscribers, err := fs.GetFeatureSubscribers(topic)
 	if err != nil {
 		// Continue without subscribers if error occurs
 		subscribers = []DeviceInfo{}
 	}
-	
+
 	return &FeatureInfo{
 		Topic:       topic,
 		Capability:  capability,
@@ -87,11 +87,11 @@ func (fs *FeatureServiceImpl) GetFeature(topic string) (*FeatureInfo, error) {
 func (fs *FeatureServiceImpl) GetFeatureSubscribers(topic string) ([]DeviceInfo, error) {
 	subscribers := fs.broker.Subs(topic)
 	result := make([]DeviceInfo, 0, len(subscribers))
-	
+
 	for client := range subscribers {
 		result = append(result, convertDeviceMetadata(client.Meta()))
 	}
-	
+
 	return result, nil
 }
 
@@ -104,12 +104,12 @@ func (fs *FeatureServiceImpl) GetFeaturesForDevice(deviceID string) ([]FeatureIn
 			Message: "Device not found: " + deviceID,
 		}
 	}
-	
+
 	meta := device.Meta()
 	meta.Mu.RLock()
 	capabilities := meta.Capabilities
 	meta.Mu.RUnlock()
-	
+
 	var features []FeatureInfo
 	for topic, capability := range capabilities {
 		// Get subscribers for this feature
@@ -117,7 +117,7 @@ func (fs *FeatureServiceImpl) GetFeaturesForDevice(deviceID string) ([]FeatureIn
 		if err != nil {
 			subscribers = []DeviceInfo{}
 		}
-		
+
 		features = append(features, FeatureInfo{
 			Topic:       topic,
 			Capability:  capability,
@@ -126,6 +126,6 @@ func (fs *FeatureServiceImpl) GetFeaturesForDevice(deviceID string) ([]FeatureIn
 			Subscribers: subscribers,
 		})
 	}
-	
+
 	return features, nil
 }

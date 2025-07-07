@@ -10,7 +10,7 @@ type ServiceManagerImpl struct {
 	registry     *server.DeviceRegistry
 	broker       *server.Broker
 	transports   []server.Transport
-	topicSources map[string]string
+	topicSources func() map[string]string
 	handleFunc   func(proto.Message)
 
 	services *ServiceContainer
@@ -21,7 +21,7 @@ func NewServiceManager(
 	registry *server.DeviceRegistry,
 	broker *server.Broker,
 	transports []server.Transport,
-	topicSources map[string]string,
+	topicSources func() map[string]string,
 	handleFunc func(proto.Message),
 ) *ServiceManagerImpl {
 
