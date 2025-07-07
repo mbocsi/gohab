@@ -8,7 +8,7 @@ import (
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/mbocsi/gohab/server"
+	"github.com/mbocsi/gohab/services"
 )
 
 func (w *WebClient) HandleHome(wr http.ResponseWriter, r *http.Request) {
@@ -16,7 +16,12 @@ func (w *WebClient) HandleHome(wr http.ResponseWriter, r *http.Request) {
 }
 
 func (w *WebClient) HandleDevices(wr http.ResponseWriter, r *http.Request) {
-	devices := w.server.GetRegistry().List()
+	devices, err := w.services.Device.ListDevices()
+	if err != nil {
+		w.handleError(wr, err)
+		return
+	}
+
 	w.templates.RenderPage(wr, "devices", map[string]interface{}{
 		"Devices": devices,
 	})
@@ -24,108 +29,102 @@ func (w *WebClient) HandleDevices(wr http.ResponseWriter, r *http.Request) {
 
 func (w *WebClient) HandleDeviceDetail(wr http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	device, ok := w.server.GetRegistry().Get(id)
-	if !ok {
-		http.NotFound(wr, r)
-		slog.Warn("Device id not found in registry", "id", id)
+	device, err := w.services.Device.GetDevice(id)
+	if err != nil {
+		w.handleError(wr, err)
 		return
 	}
 
 	if _, ok := r.Header["Hx-Request"]; !ok {
 		clone, err := w.templates.ExtendedTemplates("devices")
 		if err != nil {
-			slog.Error("Error when extending templates", "page", "devices")
-			http.Error(wr, "Template extension error: "+err.Error(), http.StatusInternalServerError)
+			w.handleTemplateError(wr, err, "devices")
 			return
 		}
-		devices := w.server.GetRegistry().List()
+		devices, err := w.services.Device.ListDevices()
+		if err != nil {
+			w.handleError(wr, err)
+			return
+		}
 		clone.RenderPage(wr, "device_detail", map[string]interface{}{
-			"Device":  device.Meta(),
+			"Device":  device,
 			"Devices": devices,
 		})
 	} else {
 		clone, err := w.templates.ExtendedTemplates("device_detail")
 		if err != nil {
-			slog.Error("Error when extending templates", "page", "device_detail")
-			http.Error(wr, "Template extension error: "+err.Error(), http.StatusInternalServerError)
+			w.handleTemplateError(wr, err, "device_detail")
 			return
 		}
 		clone.Render(wr, "content", map[string]interface{}{
-			"Device": device.Meta(),
+			"Device": device,
 		})
 	}
 }
 
 func (w *WebClient) HandleFeatures(wr http.ResponseWriter, r *http.Request) {
+	features, err := w.services.Feature.ListFeatures()
+	if err != nil {
+		w.handleError(wr, err)
+		return
+	}
+
 	w.templates.RenderPage(wr, "features", map[string]any{
-		"Features": w.server.GetTopicSources(),
+		"Features": features,
 	})
 }
 
 func (w *WebClient) HandleFeatureDetail(wr http.ResponseWriter, r *http.Request) {
 	topic := chi.URLParam(r, "name")
-	topicSources := w.server.GetTopicSources()
-	sourceId, ok := topicSources[topic]
-	if !ok {
-		http.NotFound(wr, r)
-		slog.Warn("Feature not found in topicSources", "feature", topic)
+	feature, err := w.services.Feature.GetFeature(topic)
+	if err != nil {
+		w.handleError(wr, err)
 		return
-	}
-
-	client, ok := w.server.GetRegistry().Get(sourceId)
-	if !ok {
-		http.NotFound(wr, r)
-		slog.Error("Client not found in registry", "client", sourceId)
-		return
-	}
-
-	// Get broker subscriptions
-	subscribers := w.server.GetBroker().Subs(topic)
-	var subs []server.DeviceMetadata
-	for client := range subscribers {
-		subs = append(subs, *client.Meta())
 	}
 
 	if _, ok := r.Header["Hx-Request"]; !ok {
 		clone, err := w.templates.ExtendedTemplates("features")
 		if err != nil {
-			slog.Error("Error when extending templates", "page", "features")
-			http.Error(wr, "Template extension error: "+err.Error(), http.StatusInternalServerError)
+			w.handleTemplateError(wr, err, "features")
 			return
 		}
 
-		source, ok := w.server.GetRegistry().Get(topicSources[topic])
-		if !ok {
-			slog.Error("Did not find client in registry from topic sources", "client id", topicSources[topic])
+		features, err := w.services.Feature.ListFeatures()
+		if err != nil {
+			w.handleError(wr, err)
+			return
 		}
+
 		clone.RenderPage(wr, "feature_detail", map[string]interface{}{
-			"Feature":       client.Meta().Capabilities[topic],
-			"FeatureSource": source.Meta(),
-			"Features":      topicSources,
-			"Subscriptions": subs,
+			"Feature":       feature.Capability,
+			"FeatureSource": feature,
+			"Features":      features,
+			"Subscriptions": feature.Subscribers,
 		})
 	} else {
 		clone, err := w.templates.ExtendedTemplates("feature_detail")
 		if err != nil {
-			slog.Error("Error when extending templates", "page", "feature_detail")
-			http.Error(wr, "Template extension error: "+err.Error(), http.StatusInternalServerError)
+			w.handleTemplateError(wr, err, "feature_detail")
 			return
 		}
-		source, ok := w.server.GetRegistry().Get(topicSources[topic])
-		if !ok {
-			slog.Error("Did not find client in registry from topic sources", "client id", topicSources[topic])
-		}
+
 		clone.Render(wr, "content", map[string]interface{}{
-			"Feature":       client.Meta().Capabilities[topic],
-			"FeatureSource": source.Meta(),
-			"Subscriptions": subs,
+			"Feature":       feature.Capability,
+			"FeatureSource": feature,
+			"Subscriptions": feature.Subscribers,
 		})
 	}
 }
 
 func (w *WebClient) HandleTransports(wr http.ResponseWriter, r *http.Request) {
+	transports, err := w.services.Transport.ListTransports()
+	if err != nil {
+		w.handleError(wr, err)
+		return
+	}
+
 	w.templates.RenderPage(wr, "transports", map[string]interface{}{
-		"Transports": w.server.GetTransports(),
+		"Transports": transports,
 	})
 }
 
@@ -133,38 +132,41 @@ func (w *WebClient) HandleTransportDetail(wr http.ResponseWriter, r *http.Reques
 	index := chi.URLParam(r, "i")
 	i, err := strconv.Atoi(index)
 	if err != nil {
-		slog.Warn("Error converting transport index into int", "index", index)
-		http.Error(wr, "Invalid transport index: "+index, http.StatusBadRequest)
+		w.handleError(wr, err)
 		return
 	}
 
-	transports := w.server.GetTransports()
-	if i >= len(transports) {
-		http.NotFound(wr, r)
+	transport, err := w.services.Transport.GetTransport(i)
+	if err != nil {
+		w.handleError(wr, err)
 		return
 	}
 
 	if _, ok := r.Header["Hx-Request"]; !ok {
 		clone, err := w.templates.ExtendedTemplates("transports")
 		if err != nil {
-			slog.Error("Error when extending templates", "page", "transports")
-			http.Error(wr, "Template extension error: "+err.Error(), http.StatusInternalServerError)
+			w.handleTemplateError(wr, err, "transports")
+			return
+		}
+
+		transports, err := w.services.Transport.ListTransports()
+		if err != nil {
+			w.handleError(wr, err)
 			return
 		}
 
 		clone.RenderPage(wr, "transport_detail", map[string]interface{}{
 			"Transports": transports,
-			"Transport":  transports[i].Meta(),
+			"Transport":  transport,
 		})
 	} else {
 		clone, err := w.templates.ExtendedTemplates("transport_detail")
 		if err != nil {
-			slog.Error("Error when extending templates", "page", "transport_detail")
-			http.Error(wr, "Template extension error: "+err.Error(), http.StatusInternalServerError)
+			w.handleTemplateError(wr, err, "transport_detail")
 			return
 		}
 		clone.Render(wr, "content", map[string]interface{}{
-			"Transport": transports[i].Meta(),
+			"Transport": transport,
 		})
 	}
 }
@@ -211,4 +213,52 @@ func (w *WebClient) HandleSendMessage(wr http.ResponseWriter, r *http.Request) {
 
 	wr.WriteHeader(http.StatusAccepted)
 	fmt.Fprintf(wr, "Message sent to %s/%s", req.Topic, req.Type)
+}
+
+// HandleSendQuery allows the web UI to send queries and receive responses
+func (w *WebClient) HandleSendQuery(wr http.ResponseWriter, r *http.Request) {
+	var req services.QueryRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		w.handleError(wr, err)
+		return
+	}
+
+	response, err := w.services.Messaging.SendQuery(req.Topic, req.Payload, req.Timeout)
+	if err != nil {
+		w.handleError(wr, err)
+		return
+	}
+
+	wr.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(wr).Encode(response)
+}
+
+// handleError handles service errors with proper HTTP status codes
+func (w *WebClient) handleError(wr http.ResponseWriter, err error) {
+	slog.Error("Service error", "error", err)
+
+	if serviceErr, ok := err.(services.ServiceError); ok {
+		status := http.StatusInternalServerError
+		switch serviceErr.Code {
+		case services.ErrCodeNotFound:
+			status = http.StatusNotFound
+		case services.ErrCodeInvalidInput:
+			status = http.StatusBadRequest
+		case services.ErrCodeTimeout:
+			status = http.StatusRequestTimeout
+		case services.ErrCodeUnauthorized:
+			status = http.StatusUnauthorized
+		}
+
+		http.Error(wr, serviceErr.Message, status)
+		return
+	}
+
+	http.Error(wr, "Internal server error", http.StatusInternalServerError)
+}
+
+// handleTemplateError handles template errors
+func (w *WebClient) handleTemplateError(wr http.ResponseWriter, err error, page string) {
+	slog.Error("Template error", "error", err, "page", page)
+	http.Error(wr, "Template error: "+err.Error(), http.StatusInternalServerError)
 }
