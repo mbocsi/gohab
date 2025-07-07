@@ -18,6 +18,22 @@ func NewBroker() *Broker {
 	}
 }
 
+func (b *Broker) Subs(topic string) map[Client]struct{} {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+	
+	if b.subs[topic] == nil {
+		return make(map[Client]struct{})
+	}
+	
+	// Return a copy to avoid race conditions
+	copy := make(map[Client]struct{})
+	for client := range b.subs[topic] {
+		copy[client] = struct{}{}
+	}
+	return copy
+}
+
 func (b *Broker) Subscribe(topic string, client Client) {
 	slog.Debug("Subscribing", "topic", topic, "clientId", client.Meta().Id)
 	b.mu.Lock()

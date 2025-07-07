@@ -4,17 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"log/slog"
-	"maps"
 	"net/http"
 	"os"
 	"os/signal"
-	"slices"
-	"strconv"
 	"sync"
 	"syscall"
 	"time"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/mbocsi/gohab/proto"
 )
 
@@ -22,7 +18,6 @@ type GohabServer struct {
 	registery  *DeviceRegistry
 	broker     *Broker
 	transports []Transport
-	templates  *Templates
 
 	topicSourcesMu sync.RWMutex
 	topicSources   map[string]string // topic → deviceID
@@ -32,9 +27,32 @@ func NewGohabServer(registry *DeviceRegistry, broker *Broker) *GohabServer {
 	return &GohabServer{
 		registery:    registry,
 		broker:       broker,
-		templates:    NewTemplates("templates/layout/*.html"),
 		topicSources: make(map[string]string),
 	}
+}
+
+// Interface methods for web client
+func (s *GohabServer) GetBroker() *Broker {
+	return s.broker
+}
+
+func (s *GohabServer) GetRegistry() *DeviceRegistry {
+	return s.registery
+}
+
+func (s *GohabServer) GetTransports() []Transport {
+	return s.transports
+}
+
+func (s *GohabServer) GetTopicSources() map[string]string {
+	s.topicSourcesMu.RLock()
+	defer s.topicSourcesMu.RUnlock()
+	
+	result := make(map[string]string)
+	for topic, deviceID := range s.topicSources {
+		result[topic] = deviceID
+	}
+	return result
 }
 
 func (s *GohabServer) RegisterTransport(t Transport) {
@@ -51,57 +69,50 @@ func setupLogger() {
 	slog.SetDefault(slog.New(handler))
 }
 
-func (s *GohabServer) Start(addr string) error {
+func (s *GohabServer) Start(addr string, webHandler http.Handler) error {
 	setupLogger()
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	s.start(ctx, addr)
+	s.start(ctx, addr, webHandler)
 	return nil
 }
 
-func (s *GohabServer) start(ctx context.Context, addr string) error {
+func (s *GohabServer) start(ctx context.Context, addr string, webHandler http.Handler) error {
 	// TODO: Add context to check if go routines exit for some reason
 	for _, t := range s.transports {
 		go t.Start()
 	}
 
-	server := &http.Server{
-		Addr:    addr, // configurable
-		Handler: s.Routes(),
-	}
+	var server *http.Server
+	if webHandler != nil {
+		server = &http.Server{
+			Addr:    addr,
+			Handler: webHandler,
+		}
 
-	slog.Info("Starting http server", "addr", addr)
-	go server.ListenAndServe()
+		slog.Info("Starting http server", "addr", addr)
+		go server.ListenAndServe()
+	}
 
 	<-ctx.Done()
 	slog.Info("Shutting down transports and servers")
 
-	slog.Info("Shutting down http server", "addr", addr)
-	err := server.Shutdown(context.Background())
-	if err != nil {
-		slog.Error("There wan an error when shutting down the Web Server", "error", err.Error())
+	if server != nil {
+		slog.Info("Shutting down http server", "addr", addr)
+		err := server.Shutdown(context.Background())
+		if err != nil {
+			slog.Error("There wan an error when shutting down the Web Server", "error", err.Error())
+		}
 	}
 
 	for _, t := range s.transports {
-		if err = t.Shutdown(); err != nil {
+		if err := t.Shutdown(); err != nil {
 			slog.Error("There was an error when shutting down transport server", "error", err.Error())
 		}
 	}
 	return nil
 }
 
-func (s *GohabServer) Routes() http.Handler {
-	r := chi.NewRouter()
-	r.Handle("/assets/*", http.StripPrefix("/assets/", http.FileServer(http.Dir("./assets"))))
-	r.Get("/", s.HandleHome)
-	r.Get("/devices", s.HandleDevices)
-	r.Get("/devices/{id}", s.HandleDeviceDetail)
-	r.Get("/features", s.HandleFeatures)
-	r.Get("/features/{name}", s.HandleFeatureDetail)
-	r.Get("/transports", s.HandleTransports)
-	r.Get("/transports/{i}", s.HandleTransportDetail)
-	return r
-}
 
 func (s *GohabServer) RegisterDevice(client Client) error {
 	s.registery.Store(client)
@@ -313,161 +324,3 @@ func (s *GohabServer) handleQuery(msg proto.Message) {
 	}
 }
 
-// Web handler methods
-func (s *GohabServer) HandleDeviceDetail(w http.ResponseWriter, r *http.Request) {
-	id := chi.URLParam(r, "id")
-	device, ok := s.registery.Get(id)
-	if !ok {
-		http.NotFound(w, r)
-		slog.Warn("Device id not found in registery", "id", id)
-		return
-	}
-	if _, ok := r.Header["Hx-Request"]; !ok {
-
-		clone, err := s.templates.ExtendedTemplates("devices")
-		if err != nil {
-			slog.Error("Error when extending templates", "page", "devices")
-			http.Error(w, "Template extension error: "+err.Error(), http.StatusInternalServerError)
-			return
-		}
-		devices := s.registery.List()
-		clone.RenderPage(w, "device_detail", map[string]interface{}{
-			"Device":  device.Meta(),
-			"Devices": devices,
-		})
-	} else {
-		clone, err := s.templates.ExtendedTemplates("device_detail")
-		if err != nil {
-			slog.Error("Error when extending templates", "page", "device_detail")
-			http.Error(w, "Template extension error: "+err.Error(), http.StatusInternalServerError)
-			return
-		}
-		clone.Render(w, "content", map[string]interface{}{
-			"Device": device.Meta(),
-		})
-	}
-}
-
-func (s *GohabServer) HandleDevices(w http.ResponseWriter, r *http.Request) {
-	devices := s.registery.List()
-	s.templates.RenderPage(w, "devices", map[string]interface{}{
-		"Devices": devices,
-	})
-}
-
-func (s *GohabServer) HandleFeatures(w http.ResponseWriter, r *http.Request) {
-	s.topicSourcesMu.RLock()
-	s.templates.RenderPage(w, "features", map[string]any{
-		"Features": s.topicSources,
-	})
-	s.topicSourcesMu.RUnlock()
-}
-
-func (s *GohabServer) HandleFeatureDetail(w http.ResponseWriter, r *http.Request) {
-	topic := chi.URLParam(r, "name")
-	s.topicSourcesMu.RLock()
-	sourceId, ok := s.topicSources[topic]
-	s.topicSourcesMu.RUnlock()
-	if !ok {
-		http.NotFound(w, r)
-		slog.Warn("Feature not found in topicSources", "feature", topic)
-		return
-	}
-
-	client, ok := s.registery.Get(sourceId)
-	if !ok {
-		http.NotFound(w, r)
-		slog.Error("Client not found in registery", "client", sourceId)
-		return
-	}
-	s.broker.mu.RLock()
-	subs := slices.Collect(maps.Keys(s.broker.subs[topic]))
-	s.broker.mu.RUnlock()
-
-	if _, ok := r.Header["Hx-Request"]; !ok {
-
-		clone, err := s.templates.ExtendedTemplates("features")
-		if err != nil {
-			slog.Error("Error when extending templates", "page", "features")
-			http.Error(w, "Template extension error: "+err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		s.topicSourcesMu.RLock()
-		source, ok := s.registery.Get(s.topicSources[topic])
-		if !ok {
-			slog.Error("Did not find client in registery from topic sources", "client id", s.topicSources[topic])
-		}
-		clone.RenderPage(w, "feature_detail", map[string]interface{}{
-			"Feature":       client.Meta().Capabilities[topic],
-			"FeatureSource": source.Meta(),
-			"Features":      s.topicSources,
-			"Subscriptions": subs,
-		})
-		s.topicSourcesMu.RUnlock()
-	} else {
-		clone, err := s.templates.ExtendedTemplates("feature_detail")
-		if err != nil {
-			slog.Error("Error when extending templates", "page", "feature_detail")
-			http.Error(w, "Template extension error: "+err.Error(), http.StatusInternalServerError)
-			return
-		}
-		s.topicSourcesMu.RLock()
-		source, ok := s.registery.Get(s.topicSources[topic])
-		if !ok {
-			slog.Error("Did not find client in registery from topic sources", "client id", s.topicSources[topic])
-		}
-		clone.Render(w, "content", map[string]interface{}{
-			"Feature":       client.Meta().Capabilities[topic],
-			"FeatureSource": source.Meta(),
-			"Subscriptions": subs,
-		})
-		s.topicSourcesMu.RUnlock()
-	}
-}
-
-func (s *GohabServer) HandleTransports(w http.ResponseWriter, r *http.Request) {
-	s.templates.RenderPage(w, "transports", map[string]interface{}{
-		"Transports": s.transports,
-	})
-}
-
-func (s *GohabServer) HandleTransportDetail(w http.ResponseWriter, r *http.Request) {
-	index := chi.URLParam(r, "i")
-	i, err := strconv.Atoi(index)
-	if err != nil {
-		slog.Warn("Error converting transport index into int", "index", index)
-		http.Error(w, "Invalid transport index: "+index, http.StatusBadRequest)
-		return
-	}
-	if _, ok := r.Header["Hx-Request"]; !ok {
-
-		clone, err := s.templates.ExtendedTemplates("transports")
-		if err != nil {
-			slog.Error("Error when extending templates", "page", "transports")
-			http.Error(w, "Template extension error: "+err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		s.topicSourcesMu.RLock()
-		clone.RenderPage(w, "transport_detail", map[string]interface{}{
-			"Transports": s.transports,
-			"Transport":  s.transports[i].Meta(),
-		})
-		s.topicSourcesMu.RUnlock()
-	} else {
-		clone, err := s.templates.ExtendedTemplates("transport_detail")
-		if err != nil {
-			slog.Error("Error when extending templates", "page", "transport_detail")
-			http.Error(w, "Template extension error: "+err.Error(), http.StatusInternalServerError)
-			return
-		}
-		clone.Render(w, "content", map[string]interface{}{
-			"Transport": s.transports[i].Meta(),
-		})
-	}
-}
-
-func (s *GohabServer) HandleHome(w http.ResponseWriter, r *http.Request) {
-	http.Redirect(w, r, "/devices", http.StatusMovedPermanently)
-}

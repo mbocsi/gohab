@@ -1,4 +1,4 @@
-package server
+package web
 
 import (
 	"encoding/json"
@@ -64,4 +64,3 @@ func (t *Templates) RenderPage(w http.ResponseWriter, page string, data interfac
 	}
 	clone.Render(w, "layout", data)
 }
-

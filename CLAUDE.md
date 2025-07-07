@@ -27,7 +27,6 @@ GoHab is a home automation server implementing a message-based architecture with
 
 **Server Architecture:**
 - `GohabServer` - Main server coordinating all components
-- `Coordinator` - Central message router and web interface handler
 - `Broker` - Pub/sub message broker for topic-based communication
 - `DeviceRegistry` - Manages connected devices and their metadata
 - `Transport` - Abstraction for client connection methods (TCP, potentially others)

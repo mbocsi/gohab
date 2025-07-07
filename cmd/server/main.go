@@ -4,6 +4,7 @@ import (
 	"log/slog"
 
 	"github.com/mbocsi/gohab/server"
+	"github.com/mbocsi/gohab/web"
 )
 
 func main() {
@@ -21,7 +22,10 @@ func main() {
 	gohabServer := server.NewGohabServer(registry, broker)
 	gohabServer.RegisterTransport(tcpServer)
 
-	if err := gohabServer.Start(":8080"); err != nil {
+	// Create web client that acts as both UI and client
+	webClient := web.NewWebClient(gohabServer)
+
+	if err := gohabServer.Start(":8080", webClient.Routes()); err != nil {
 		slog.Error("Error starting gohab server", "error", err.Error())
 	}
 }
