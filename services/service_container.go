@@ -37,7 +37,6 @@ func NewServiceManager(
 	sm.services = &ServiceContainer{
 		Device:    NewDeviceService(registry),
 		Feature:   NewFeatureService(registry, broker, topicSources),
-		Messaging: NewMessagingService(broker, registry, handleFunc, "web-ui"),
 		Transport: NewTransportService(transports),
 	}
 
@@ -51,13 +50,6 @@ func (sm *ServiceManagerImpl) GetServices() *ServiceContainer {
 
 // HandleMessage handles incoming messages and routes them to appropriate services
 func (sm *ServiceManagerImpl) HandleMessage(msg proto.Message) {
-	// Route response messages to messaging service for query correlation
-	if msg.Type == "response" {
-		if msgService, ok := sm.services.Messaging.(*MessagingServiceImpl); ok {
-			msgService.HandleResponse(msg)
-		}
-	}
-
 	// Continue with normal message handling
 	sm.handleFunc(msg)
 }

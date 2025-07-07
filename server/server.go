@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"log/slog"
-	"net/http"
 	"os"
 	"os/signal"
 	"sync"
@@ -31,7 +30,7 @@ func NewGohabServer(registry *DeviceRegistry, broker *Broker) *GohabServer {
 	}
 }
 
-// Interface methods for web client
+// Interface methods for services
 func (s *GohabServer) GetBroker() *Broker {
 	return s.broker
 }
@@ -47,7 +46,7 @@ func (s *GohabServer) GetTransports() []Transport {
 func (s *GohabServer) GetTopicSources() map[string]string {
 	s.topicSourcesMu.RLock()
 	defer s.topicSourcesMu.RUnlock()
-	
+
 	result := make(map[string]string)
 	for topic, deviceID := range s.topicSources {
 		result[topic] = deviceID
@@ -69,41 +68,22 @@ func setupLogger() {
 	slog.SetDefault(slog.New(handler))
 }
 
-func (s *GohabServer) Start(addr string, webHandler http.Handler) error {
+func (s *GohabServer) Start() error {
 	setupLogger()
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	s.start(ctx, addr, webHandler)
+	s.start(ctx)
 	return nil
 }
 
-func (s *GohabServer) start(ctx context.Context, addr string, webHandler http.Handler) error {
+func (s *GohabServer) start(ctx context.Context) error {
 	// TODO: Add context to check if go routines exit for some reason
 	for _, t := range s.transports {
 		go t.Start()
 	}
 
-	var server *http.Server
-	if webHandler != nil {
-		server = &http.Server{
-			Addr:    addr,
-			Handler: webHandler,
-		}
-
-		slog.Info("Starting http server", "addr", addr)
-		go server.ListenAndServe()
-	}
-
 	<-ctx.Done()
 	slog.Info("Shutting down transports and servers")
-
-	if server != nil {
-		slog.Info("Shutting down http server", "addr", addr)
-		err := server.Shutdown(context.Background())
-		if err != nil {
-			slog.Error("There wan an error when shutting down the Web Server", "error", err.Error())
-		}
-	}
 
 	for _, t := range s.transports {
 		if err := t.Shutdown(); err != nil {
@@ -112,7 +92,6 @@ func (s *GohabServer) start(ctx context.Context, addr string, webHandler http.Ha
 	}
 	return nil
 }
-
 
 func (s *GohabServer) RegisterDevice(client Client) error {
 	s.registery.Store(client)
@@ -323,4 +302,3 @@ func (s *GohabServer) handleQuery(msg proto.Message) {
 		}
 	}
 }
-

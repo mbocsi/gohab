@@ -1,8 +1,6 @@
 package services
 
 import (
-	"time"
-
 	"github.com/mbocsi/gohab/proto"
 )
 
@@ -33,28 +31,6 @@ type TransportInfo struct {
 	Connections int    `json:"connections"`
 }
 
-// QueryRequest represents a query request
-type QueryRequest struct {
-	Topic   string      `json:"topic"`
-	Payload interface{} `json:"payload"`
-	Timeout time.Duration `json:"timeout,omitempty"`
-}
-
-// QueryResponse represents a query response with correlation
-type QueryResponse struct {
-	QueryID   string        `json:"query_id"`
-	Response  proto.Message `json:"response"`
-	Error     error         `json:"error,omitempty"`
-	Timestamp time.Time     `json:"timestamp"`
-}
-
-// MessageRequest represents a generic message request
-type MessageRequest struct {
-	Type      string      `json:"type"`
-	Topic     string      `json:"topic"`
-	Payload   interface{} `json:"payload"`
-	Recipient string      `json:"recipient,omitempty"`
-}
 
 // ServiceError represents structured service layer errors
 type ServiceError struct {

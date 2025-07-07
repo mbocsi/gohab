@@ -2,9 +2,7 @@ package services
 
 import (
 	"encoding/json"
-	"time"
 
-	"github.com/mbocsi/gohab/proto"
 	"github.com/mbocsi/gohab/server"
 )
 
@@ -20,7 +18,7 @@ func marshalPayload(payload interface{}) ([]byte, error) {
 func convertDeviceMetadata(meta *server.DeviceMetadata) DeviceInfo {
 	meta.Mu.RLock()
 	defer meta.Mu.RUnlock()
-	
+
 	return DeviceInfo{
 		ID:            meta.Id,
 		Name:          meta.Name,
@@ -38,7 +36,7 @@ func convertTransportMeta(index int, transport server.Transport) TransportInfo {
 	if meta.Connected {
 		status = "connected"
 	}
-	
+
 	return TransportInfo{
 		Index:       index,
 		Type:        meta.Protocol,
@@ -50,23 +48,23 @@ func convertTransportMeta(index int, transport server.Transport) TransportInfo {
 // validateMessageType validates message type
 func validateMessageType(msgType string) error {
 	validTypes := map[string]bool{
-		"identify":     true,
-		"command":      true,
-		"query":        true,
-		"response":     true,
-		"data":         true,
-		"status":       true,
-		"subscribe":    true,
-		"unsubscribe":  true,
+		"identify":    true,
+		"command":     true,
+		"query":       true,
+		"response":    true,
+		"data":        true,
+		"status":      true,
+		"subscribe":   true,
+		"unsubscribe": true,
 	}
-	
+
 	if !validTypes[msgType] {
 		return ServiceError{
 			Code:    ErrCodeInvalidInput,
 			Message: "Invalid message type: " + msgType,
 		}
 	}
-	
+
 	return nil
 }
 
@@ -78,36 +76,7 @@ func validateTopic(topic string) error {
 			Message: "Topic cannot be empty",
 		}
 	}
-	
+
 	// Add more validation rules as needed
 	return nil
-}
-
-// createMessage creates a proto.Message from request
-func createMessage(req MessageRequest, senderID string) (proto.Message, error) {
-	if err := validateMessageType(req.Type); err != nil {
-		return proto.Message{}, err
-	}
-	
-	if err := validateTopic(req.Topic); err != nil {
-		return proto.Message{}, err
-	}
-	
-	payloadBytes, err := marshalPayload(req.Payload)
-	if err != nil {
-		return proto.Message{}, ServiceError{
-			Code:    ErrCodeInvalidInput,
-			Message: "Failed to marshal payload",
-			Cause:   err,
-		}
-	}
-	
-	return proto.Message{
-		Type:      req.Type,
-		Topic:     req.Topic,
-		Payload:   payloadBytes,
-		Sender:    senderID,
-		Recipient: req.Recipient,
-		Timestamp: time.Now().Unix(),
-	}, nil
 }

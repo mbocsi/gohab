@@ -202,12 +202,12 @@ func (w *WebClient) HandleSendMessage(wr http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(wr, "Invalid JSON payload", http.StatusBadRequest)
+		w.handleError(wr, err)
 		return
 	}
 
 	if err := w.SendMessage(req.Type, req.Topic, req.Payload); err != nil {
-		http.Error(wr, err.Error(), http.StatusInternalServerError)
+		w.handleError(wr, err)
 		return
 	}
 
@@ -215,23 +215,6 @@ func (w *WebClient) HandleSendMessage(wr http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(wr, "Message sent to %s/%s", req.Topic, req.Type)
 }
 
-// HandleSendQuery allows the web UI to send queries and receive responses
-func (w *WebClient) HandleSendQuery(wr http.ResponseWriter, r *http.Request) {
-	var req services.QueryRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		w.handleError(wr, err)
-		return
-	}
-
-	response, err := w.services.Messaging.SendQuery(req.Topic, req.Payload, req.Timeout)
-	if err != nil {
-		w.handleError(wr, err)
-		return
-	}
-
-	wr.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(wr).Encode(response)
-}
 
 // handleError handles service errors with proper HTTP status codes
 func (w *WebClient) handleError(wr http.ResponseWriter, err error) {

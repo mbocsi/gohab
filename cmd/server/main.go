@@ -23,6 +23,10 @@ func main() {
 	gohabServer := server.NewGohabServer(registry, broker)
 	gohabServer.RegisterTransport(tcpServer)
 
+	// Create web transport
+	webTransport := web.NewWebTransport()
+	gohabServer.RegisterTransport(webTransport)
+
 	// Create service layer
 	serviceManager := services.NewServiceManager(
 		gohabServer.GetRegistry(),
@@ -32,10 +36,12 @@ func main() {
 		gohabServer.Handle,
 	)
 
-	// Create web client with service layer
-	webClient := web.NewWebClient(gohabServer, serviceManager.GetServices())
+	// Create web client with service layer and transport
+	webClient := web.NewWebClient(serviceManager.GetServices())
 
-	if err := gohabServer.Start(":8080", webClient.Routes()); err != nil {
+	go webClient.Start(":8080")
+
+	if err := gohabServer.Start(); err != nil {
 		slog.Error("Error starting gohab server", "error", err.Error())
 	}
 }
