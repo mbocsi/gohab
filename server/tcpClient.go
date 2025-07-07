@@ -10,8 +10,7 @@ import (
 
 type TCPClient struct {
 	DeviceMetadata
-	conn      net.Conn
-	mcpServer *MCPServer // Currently not used
+	conn net.Conn
 }
 
 func NewTCPClient(conn net.Conn, t Transport) *TCPClient {
@@ -33,8 +32,4 @@ func (c *TCPClient) Send(msg proto.Message) error {
 
 func (c *TCPClient) Meta() *DeviceMetadata {
 	return &c.DeviceMetadata
-}
-
-func (c *TCPClient) MCPServer() *MCPServer {
-	return c.mcpServer
 }

@@ -44,7 +44,6 @@ type DeviceMetadata struct {
 type Client interface {
 	Send(proto.Message) error
 	Meta() *DeviceMetadata
-	MCPServer() *MCPServer
 }
 
 func generateClientId(prefix string) string {

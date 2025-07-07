@@ -18,24 +18,9 @@ import (
 	"github.com/mbocsi/gohab/proto"
 )
 
-type Server interface {
-	Start() error
-	Shutdown() error
-}
-
-type GohabServerOptions struct {
-	MCPServer *MCPServer      // Optional MCPServer to run alongside
-	Broker    *Broker         // Optional (defaults to new Broker if nil)
-	Registry  *DeviceRegistry // Optional (defaults to new Registry if nil)
-	Context   context.Context // Optional (defaults to context.Background())
-	Addr      string
-}
-
 type GohabServer struct {
-	options    GohabServerOptions
 	registery  *DeviceRegistry
 	broker     *Broker
-	mcpServer  *MCPServer
 	transports []Transport
 	templates  *Templates
 
@@ -43,23 +28,10 @@ type GohabServer struct {
 	topicSources   map[string]string // topic → deviceID
 }
 
-func NewGohabServer(opts GohabServerOptions) *GohabServer {
-	if opts.Broker == nil {
-		opts.Broker = NewBroker()
-	}
-	if opts.Registry == nil {
-		opts.Registry = NewDeviceRegistry()
-	}
-	// TODO: Currently not used
-	if opts.Context == nil {
-		opts.Context = context.Background()
-	}
-
+func NewGohabServer(registry *DeviceRegistry, broker *Broker) *GohabServer {
 	return &GohabServer{
-		options:      opts,
-		registery:    opts.Registry,
-		broker:       opts.Broker,
-		mcpServer:    opts.MCPServer,
+		registery:    registry,
+		broker:       broker,
 		templates:    NewTemplates("templates/layout/*.html"),
 		topicSources: make(map[string]string),
 	}
@@ -89,9 +61,6 @@ func (s *GohabServer) Start(addr string) error {
 
 func (s *GohabServer) start(ctx context.Context, addr string) error {
 	// TODO: Add context to check if go routines exit for some reason
-	if s.mcpServer != nil {
-		go s.mcpServer.Start()
-	}
 	for _, t := range s.transports {
 		go t.Start()
 	}
@@ -113,11 +82,6 @@ func (s *GohabServer) start(ctx context.Context, addr string) error {
 		slog.Error("There wan an error when shutting down the Web Server", "error", err.Error())
 	}
 
-	if s.mcpServer != nil {
-		if err = s.mcpServer.Shutdown(); err != nil {
-			slog.Error("There was an error when shutting down MCP server", "error", err.Error())
-		}
-	}
 	for _, t := range s.transports {
 		if err = t.Shutdown(); err != nil {
 			slog.Error("There was an error when shutting down transport server", "error", err.Error())
