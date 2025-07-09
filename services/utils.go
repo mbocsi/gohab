@@ -19,6 +19,15 @@ func convertDeviceMetadata(meta *server.DeviceMetadata) DeviceInfo {
 	meta.Mu.RLock()
 	defer meta.Mu.RUnlock()
 
+	transportName := "Unknown"
+	transportID := ""
+	
+	if meta.Transport != nil {
+		transportMeta := meta.Transport.Meta()
+		transportName = transportMeta.Name
+		transportID = transportMeta.ID
+	}
+
 	return DeviceInfo{
 		ID:            meta.Id,
 		Name:          meta.Name,
@@ -26,11 +35,13 @@ func convertDeviceMetadata(meta *server.DeviceMetadata) DeviceInfo {
 		Capabilities:  meta.Capabilities,
 		Subscriptions: meta.Subs,
 		Connected:     true, // If it's in registry, it's connected
+		TransportName: transportName,
+		TransportID:   transportID,
 	}
 }
 
 // convertTransportMeta converts transport metadata to TransportInfo
-func convertTransportMeta(index int, transport server.Transport) TransportInfo {
+func convertTransportMeta(transport server.Transport) TransportInfo {
 	meta := transport.Meta()
 	status := "disconnected"
 	if meta.Connected {
@@ -44,7 +55,7 @@ func convertTransportMeta(index int, transport server.Transport) TransportInfo {
 	}
 	
 	return TransportInfo{
-		Index:       index,
+		ID:          meta.ID,
 		Name:        meta.Name,
 		Type:        meta.Protocol,
 		Address:     meta.Address,

@@ -140,6 +140,7 @@ func (t *TCPTransport) Meta() TransportMetadata {
 	clients := t.clients
 	t.cmu.RUnlock()
 	return TransportMetadata{
+		ID:          "tcp-" + t.Addr,
 		Name:        t.name,
 		Description: t.description,
 		Protocol:    "tcp",

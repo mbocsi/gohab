@@ -77,6 +77,7 @@ func (wt *WebTransport) Meta() server.TransportMetadata {
 	clients := wt.clients
 	wt.cmu.RUnlock()
 	return server.TransportMetadata{
+		ID:          "web-transport",
 		Name:        wt.name,
 		Description: wt.description,
 		Protocol:    "memory",

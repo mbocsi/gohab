@@ -16,7 +16,7 @@ import (
 type GohabServer struct {
 	registery  *DeviceRegistry
 	broker     *Broker
-	transports []Transport
+	transports map[string]Transport
 
 	topicSourcesMu sync.RWMutex
 	topicSources   map[string]string // topic → deviceID
@@ -26,6 +26,7 @@ func NewGohabServer(registry *DeviceRegistry, broker *Broker) *GohabServer {
 	return &GohabServer{
 		registery:    registry,
 		broker:       broker,
+		transports:   make(map[string]Transport),
 		topicSources: make(map[string]string),
 	}
 }
@@ -39,7 +40,7 @@ func (s *GohabServer) GetRegistry() *DeviceRegistry {
 	return s.registery
 }
 
-func (s *GohabServer) GetTransports() []Transport {
+func (s *GohabServer) GetTransports() map[string]Transport {
 	return s.transports
 }
 
@@ -58,7 +59,15 @@ func (s *GohabServer) RegisterTransport(t Transport) {
 	t.OnMessage(s.Handle)
 	t.OnConnect(s.RegisterDevice)
 	t.OnDisconnect(s.RemoveDevice)
-	s.transports = append(s.transports, t)
+	
+	// Get transport metadata and use ID as key
+	meta := t.Meta()
+	if meta.ID == "" {
+		// Generate an ID if not set
+		meta.ID = meta.Protocol + "-" + meta.Address
+	}
+	
+	s.transports[meta.ID] = t
 }
 
 func setupLogger() {

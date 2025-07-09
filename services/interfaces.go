@@ -31,7 +31,7 @@ type FeatureService interface {
 // TransportService handles transport information
 type TransportService interface {
 	ListTransports() ([]TransportInfo, error)
-	GetTransport(index int) (*TransportInfo, error)
+	GetTransport(id string) (*TransportInfo, error)
 	GetTransportStats() (map[string]interface{}, error)
 }
 

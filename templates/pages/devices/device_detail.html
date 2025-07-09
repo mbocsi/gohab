@@ -7,7 +7,7 @@
                 hx-get="/devices/{{ .Device.ID }}/rename-form" 
                 hx-target="#rename-container" 
                 hx-swap="innerHTML"
-                style="margin-left: 10px; padding: 4px 8px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px;">
+                class="btn-primary">
             Rename
         </button>
     </h2>
@@ -22,6 +22,29 @@
     </li>
     {{ end }}
 	</ul>
+
+    <h3>Subscriptions</h3>
+    <ul>
+    {{ range $topic, $_ := .Device.Subscriptions }}
+    <li>
+        <a href="/features/{{ $topic }}" hx-get="/features/{{ $topic }}" hx-target="#main-content" hx-swap="innerHTML" hx-push-url="true">{{ $topic }}</a>
+    </li>
+    {{ else }}
+    <li>Not subscribed to any topics</li>
+    {{ end }}
+    </ul>
+
+    <h3>Transport</h3>
+    <ul>
+        <li><strong>Name:</strong> 
+            {{ if .Device.TransportID }}
+            <a href="/transports/{{ .Device.TransportID }}" hx-get="/transports/{{ .Device.TransportID }}" hx-target="#main-content" hx-swap="innerHTML" hx-push-url="true">{{ .Device.TransportName }}</a>
+            {{ else }}
+            {{ .Device.TransportName }}
+            {{ end }}
+        </li>
+        <li><strong>ID:</strong> {{ .Device.TransportID }}</li>
+    </ul>
 </section>
 {{ else }}
 <div class="default-content">

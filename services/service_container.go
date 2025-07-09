@@ -9,7 +9,7 @@ import (
 type ServiceManagerImpl struct {
 	registry     *server.DeviceRegistry
 	broker       *server.Broker
-	transports   []server.Transport
+	transports   map[string]server.Transport
 	topicSources func() map[string]string
 	handleFunc   func(proto.Message)
 
@@ -20,7 +20,7 @@ type ServiceManagerImpl struct {
 func NewServiceManager(
 	registry *server.DeviceRegistry,
 	broker *server.Broker,
-	transports []server.Transport,
+	transports map[string]server.Transport,
 	topicSources func() map[string]string,
 	handleFunc func(proto.Message),
 ) *ServiceManagerImpl {

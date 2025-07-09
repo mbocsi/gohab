@@ -140,7 +140,7 @@ func (w *WebClient) Routes() http.Handler {
 	r.Get("/features", w.HandleFeatures)
 	r.Get("/features/{name}", w.HandleFeatureDetail)
 	r.Get("/transports", w.HandleTransports)
-	r.Get("/transports/{i}", w.HandleTransportDetail)
+	r.Get("/transports/{id}", w.HandleTransportDetail)
 	r.Post("/api/devices/{id}/rename", w.HandleDeviceRename)
 	r.Post("/api/messages", w.HandleSendMessage)
 	return r

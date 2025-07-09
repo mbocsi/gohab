@@ -20,6 +20,7 @@ type Transport interface {
 }
 
 type TransportMetadata struct {
+	ID          string // Unique transport identifier
 	Name        string // Human-friendly name, e.g., "TCP Server", "WebSocket Gateway"
 	Protocol    string // Protocol name, e.g., "tcp", "websocket", "http"
 	Address     string // Bind address, e.g., "0.0.0.0:8080"

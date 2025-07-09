@@ -12,7 +12,7 @@
     </thead>
     <tbody>
     {{ range $transport := .Transports }}
-        <tr class="device-row" hx-get="/transports/{{ $transport.Index }}" hx-target="#main-content" hx-swap="innerHTML" hx-push-url="true">
+        <tr class="device-row" hx-get="/transports/{{ $transport.ID }}" hx-target="#main-content" hx-swap="innerHTML" hx-push-url="true">
             <td>
                 {{ $transport.Name }}
             </td>

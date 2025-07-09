@@ -6,12 +6,14 @@ import (
 
 // DeviceInfo represents device information for the service layer
 type DeviceInfo struct {
-	ID           string                       `json:"id"`
-	Name         string                       `json:"name"`
-	Firmware     string                       `json:"firmware"`
-	Capabilities map[string]proto.Capability `json:"capabilities"`
+	ID            string                       `json:"id"`
+	Name          string                       `json:"name"`
+	Firmware      string                       `json:"firmware"`
+	Capabilities  map[string]proto.Capability `json:"capabilities"`
 	Subscriptions map[string]struct{}         `json:"subscriptions"`
-	Connected    bool                         `json:"connected"`
+	Connected     bool                         `json:"connected"`
+	TransportName string                       `json:"transport_name"`
+	TransportID   string                       `json:"transport_id"`
 }
 
 // FeatureInfo represents feature/capability information
@@ -25,7 +27,7 @@ type FeatureInfo struct {
 
 // TransportInfo represents transport connection information
 type TransportInfo struct {
-	Index       int                 `json:"index"`
+	ID          string              `json:"id"`
 	Name        string              `json:"name"`
 	Type        string              `json:"type"`
 	Address     string              `json:"address"`

@@ -5,11 +5,12 @@
     <meta charset="UTF-8">
     <title>{{ block "title" . }} Dashboard {{ end }}</title>
     <link rel="stylesheet" href="/assets/css/style.css">
+    {{ block "head" . }} {{ end }}
     <script src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.6/dist/htmx.min.js" integrity="sha384-Akqfrbj/HpNVo8k11SXBb6TlBWmXXlYQrCSqEWmyKJe+hDm3Z/B2WVG4smwBkRVm" crossorigin="anonymous"></script>
 </head>
 <body>
     {{ template "navbar" . }}
-    <div style="display: flex; flex-direction: row; flex-grow: 1">
+    <div class="layout-container">
         <aside>
             {{ template "sidebar" . }}
         </aside>

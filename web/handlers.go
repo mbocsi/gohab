@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
-	"strconv"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/mbocsi/gohab/services"
@@ -107,14 +106,9 @@ func (w *WebClient) HandleTransports(wr http.ResponseWriter, r *http.Request) {
 }
 
 func (w *WebClient) HandleTransportDetail(wr http.ResponseWriter, r *http.Request) {
-	index := chi.URLParam(r, "i")
-	i, err := strconv.Atoi(index)
-	if err != nil {
-		w.handleError(wr, err)
-		return
-	}
-
-	transport, err := w.services.Transport.GetTransport(i)
+	id := chi.URLParam(r, "id")
+	
+	transport, err := w.services.Transport.GetTransport(id)
 	if err != nil {
 		w.handleError(wr, err)
 		return
