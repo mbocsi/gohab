@@ -1,4 +1,5 @@
 {{ define "content" }}
+{{ if .Transport }}
 <section class="details">
     <h2 class="details-header">{{ .Transport.Name }}</h2>
 
@@ -28,4 +29,15 @@
     {{ end }}
     </ul>
 </section>
+{{ else }}
+<div class="default-content">
+    <h2>Transport Status</h2>
+    <p>Select a transport from the list on the left to view its details and connected devices.</p>
+    {{ if .Transports }}
+    <p>Currently {{ len .Transports }} transport(s) are running in the system.</p>
+    {{ else }}
+    <p>No transports are currently running. Transports handle client connections via different protocols (TCP, WebSocket, etc.).</p>
+    {{ end }}
+</div>
+{{ end }}
 {{ end }}

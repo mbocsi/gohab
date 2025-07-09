@@ -1,4 +1,5 @@
 {{ define "content" }}
+{{ if .Feature }}
 <section class="details">
     <h2 class="details-header">Topic: {{ .Feature.Name }}</h2>
     <p><strong>Source Device:</strong>
@@ -53,6 +54,17 @@
         <!-- New messages will be appended here -->
     </div>
 </section>
+{{ else }}
+<div class="default-content">
+    <h2>Feature Overview</h2>
+    <p>Select a feature from the list on the left to view its details, schema, and live message stream.</p>
+    {{ if .Features }}
+    <p>Currently {{ len .Features }} feature(s) are available in the system.</p>
+    {{ else }}
+    <p>No features are currently available. Features are created automatically when devices with capabilities connect to the system.</p>
+    {{ end }}
+</div>
+{{ end }}
 {{ end }}
 
 {{ define "method_schema" }}

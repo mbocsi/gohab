@@ -1,4 +1,5 @@
 {{ define "content" }}
+{{ if .Device }}
 <section class="details">
     <h2 class="details-header">
         <span id="device-name">{{ .Device.Name }}</span> <small class="device-id">({{ .Device.ID }})</small>
@@ -22,4 +23,15 @@
     {{ end }}
 	</ul>
 </section>
+{{ else }}
+<div class="default-content">
+    <h2>Device Management</h2>
+    <p>Select a device from the list on the left to view its details, capabilities, and manage its settings.</p>
+    {{ if .Devices }}
+    <p>Currently {{ len .Devices }} device(s) are connected to the system.</p>
+    {{ else }}
+    <p>No devices are currently connected to the system.</p>
+    {{ end }}
+</div>
+{{ end }}
 {{ end }}

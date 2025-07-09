@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -25,9 +26,19 @@ func NewTemplates(pattern string) *Templates {
 
 	// Pre-compile all page templates from the pages directory structure
 	pages := make(map[string]*PageTemplate)
-	pageGroups := []string{"devices", "features", "transports"}
 
-	for _, group := range pageGroups {
+	// Dynamically discover page groups by reading directories
+	pagesDir := "templates/pages"
+	entries, err := os.ReadDir(pagesDir)
+	if err != nil {
+		panic(fmt.Sprintf("Failed to read pages directory: %v", err))
+	}
+
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		group := entry.Name()
 		clone, err := base.Clone()
 		if err != nil {
 			panic(fmt.Sprintf("Failed to clone template for %s: %v", group, err))
