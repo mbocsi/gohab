@@ -135,6 +135,8 @@ func (w *WebClient) Routes() http.Handler {
 	r.Get("/", w.HandleHome)
 	r.Get("/devices", w.HandleDevices)
 	r.Get("/devices/{id}", w.HandleDeviceDetail)
+	r.Get("/devices/{id}/rename-form", w.HandleDeviceRenameForm)
+	r.Get("/devices/{id}/cancel-rename", w.HandleDeviceRenameCancel)
 	r.Get("/features", w.HandleFeatures)
 	r.Get("/features/{name}", w.HandleFeatureDetail)
 	r.Get("/transports", w.HandleTransports)

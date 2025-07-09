@@ -22,7 +22,7 @@ func (w *WebClient) HandleDevices(wr http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.templates.RenderPage(wr, "devices", map[string]interface{}{
+	w.templates.pages["devices"].RenderPage(wr, map[string]interface{}{
 		"Devices": devices,
 	})
 }
@@ -36,27 +36,17 @@ func (w *WebClient) HandleDeviceDetail(wr http.ResponseWriter, r *http.Request) 
 	}
 
 	if _, ok := r.Header["Hx-Request"]; !ok {
-		clone, err := w.templates.ExtendedTemplates("devices")
-		if err != nil {
-			w.handleTemplateError(wr, err, "devices")
-			return
-		}
 		devices, err := w.services.Device.ListDevices()
 		if err != nil {
 			w.handleError(wr, err)
 			return
 		}
-		clone.RenderPage(wr, "device_detail", map[string]interface{}{
+		w.templates.pages["devices"].RenderPage(wr, map[string]interface{}{
 			"Device":  device,
 			"Devices": devices,
 		})
 	} else {
-		clone, err := w.templates.ExtendedTemplates("device_detail")
-		if err != nil {
-			w.handleTemplateError(wr, err, "device_detail")
-			return
-		}
-		clone.Render(wr, "content", map[string]interface{}{
+		w.templates.pages["devices"].Render(wr, "content", map[string]interface{}{
 			"Device": device,
 		})
 	}
@@ -69,7 +59,7 @@ func (w *WebClient) HandleFeatures(wr http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.templates.RenderPage(wr, "features", map[string]any{
+	w.templates.pages["features"].RenderPage(wr, map[string]any{
 		"Features": features,
 	})
 }
@@ -83,32 +73,20 @@ func (w *WebClient) HandleFeatureDetail(wr http.ResponseWriter, r *http.Request)
 	}
 
 	if _, ok := r.Header["Hx-Request"]; !ok {
-		clone, err := w.templates.ExtendedTemplates("features")
-		if err != nil {
-			w.handleTemplateError(wr, err, "features")
-			return
-		}
-
 		features, err := w.services.Feature.ListFeatures()
 		if err != nil {
 			w.handleError(wr, err)
 			return
 		}
 
-		clone.RenderPage(wr, "feature_detail", map[string]interface{}{
+		w.templates.pages["features"].RenderPage(wr, map[string]interface{}{
 			"Feature":       feature.Capability,
 			"FeatureSource": feature,
 			"Features":      features,
 			"Subscriptions": feature.Subscribers,
 		})
 	} else {
-		clone, err := w.templates.ExtendedTemplates("feature_detail")
-		if err != nil {
-			w.handleTemplateError(wr, err, "feature_detail")
-			return
-		}
-
-		clone.Render(wr, "content", map[string]interface{}{
+		w.templates.pages["features"].Render(wr, "content", map[string]interface{}{
 			"Feature":       feature.Capability,
 			"FeatureSource": feature,
 			"Subscriptions": feature.Subscribers,
@@ -123,7 +101,7 @@ func (w *WebClient) HandleTransports(wr http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.templates.RenderPage(wr, "transports", map[string]interface{}{
+	w.templates.pages["transports"].RenderPage(wr, map[string]interface{}{
 		"Transports": transports,
 	})
 }
@@ -143,54 +121,62 @@ func (w *WebClient) HandleTransportDetail(wr http.ResponseWriter, r *http.Reques
 	}
 
 	if _, ok := r.Header["Hx-Request"]; !ok {
-		clone, err := w.templates.ExtendedTemplates("transports")
-		if err != nil {
-			w.handleTemplateError(wr, err, "transports")
-			return
-		}
-
 		transports, err := w.services.Transport.ListTransports()
 		if err != nil {
 			w.handleError(wr, err)
 			return
 		}
 
-		clone.RenderPage(wr, "transport_detail", map[string]interface{}{
+		w.templates.pages["transports"].RenderPage(wr, map[string]interface{}{
 			"Transports": transports,
 			"Transport":  transport,
 		})
 	} else {
-		clone, err := w.templates.ExtendedTemplates("transport_detail")
-		if err != nil {
-			w.handleTemplateError(wr, err, "transport_detail")
-			return
-		}
-		clone.Render(wr, "content", map[string]interface{}{
+		w.templates.pages["transports"].Render(wr, "content", map[string]interface{}{
 			"Transport": transport,
 		})
 	}
 }
 
-// HandleDeviceRename is an API endpoint for renaming devices
+// HandleDeviceRename handles device renaming from web forms
 func (w *WebClient) HandleDeviceRename(wr http.ResponseWriter, r *http.Request) {
 	deviceID := chi.URLParam(r, "id")
 
-	var req struct {
-		Name string `json:"name"`
-	}
-
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(wr, "Invalid JSON payload", http.StatusBadRequest)
+	if err := r.ParseForm(); err != nil {
+		http.Error(wr, "Invalid form data", http.StatusBadRequest)
 		return
 	}
 
-	if err := w.RenameDevice(deviceID, req.Name); err != nil {
+	newName := r.FormValue("name")
+	if err := w.RenameDevice(deviceID, newName); err != nil {
 		http.Error(wr, err.Error(), http.StatusBadRequest)
 		return
 	}
 
+	// Return just the new name for HTMX to update the device name span
+	wr.Header().Set("Content-Type", "text/plain")
+	wr.Header().Set("HX-Trigger", "clearRenameForm")
+	fmt.Fprint(wr, newName)
+}
+
+// HandleDeviceRenameForm shows the rename form
+func (w *WebClient) HandleDeviceRenameForm(wr http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	device, err := w.services.Device.GetDevice(id)
+	if err != nil {
+		w.handleError(wr, err)
+		return
+	}
+
+	w.templates.pages["devices"].Render(wr, "rename-form", map[string]interface{}{
+		"Device": device,
+	})
+}
+
+// HandleDeviceRenameCancel clears the rename form
+func (w *WebClient) HandleDeviceRenameCancel(wr http.ResponseWriter, r *http.Request) {
+	// Return empty content to clear the rename container
 	wr.WriteHeader(http.StatusOK)
-	json.NewEncoder(wr).Encode(map[string]string{"status": "success"})
 }
 
 // HandleSendMessage allows the web UI to send messages like a client

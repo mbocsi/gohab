@@ -1,0 +1,25 @@
+{{ define "rename-form" }}
+<div style="margin-top: 10px; padding: 10px; border: 1px solid #ddd; border-radius: 4px; background: #f9f9f9;">
+    <form hx-post="/api/devices/{{ .Device.ID }}/rename" 
+          hx-target="#device-name" 
+          hx-swap="innerHTML">
+        <input type="text" 
+               name="name" 
+               value="{{ .Device.Name }}" 
+               placeholder="Enter new name" 
+               style="padding: 8px; margin-right: 10px; border: 1px solid #ddd; border-radius: 4px;"
+               required>
+        <button type="submit" 
+                style="padding: 8px 16px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; margin-right: 5px;">
+            Save
+        </button>
+        <button type="button" 
+                hx-get="/devices/{{ .Device.ID }}/cancel-rename" 
+                hx-target="#rename-container" 
+                hx-swap="innerHTML"
+                style="padding: 8px 16px; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">
+            Cancel
+        </button>
+    </form>
+</div>
+{{ end }}

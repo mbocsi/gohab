@@ -1,0 +1,25 @@
+{{ define "content" }}
+<section class="details">
+    <h2 class="details-header">
+        <span id="device-name">{{ .Device.Name }}</span> <small class="device-id">({{ .Device.ID }})</small>
+        <button id="rename-btn" 
+                hx-get="/devices/{{ .Device.ID }}/rename-form" 
+                hx-target="#rename-container" 
+                hx-swap="innerHTML"
+                style="margin-left: 10px; padding: 4px 8px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px;">
+            Rename
+        </button>
+    </h2>
+
+    <div id="rename-container" hx-trigger="clearRenameForm from:body" hx-get="/devices/{{ .Device.ID }}/cancel-rename" hx-swap="innerHTML"></div>
+
+    <h3>Features</h3>
+	<ul>
+    {{ range .Device.Capabilities }}
+    <li>
+        <a href="/features/{{ .Name }}" hx-get="/features/{{ .Name }}" hx-target="#main-content" hx-swap="innerHTML" hx-push-url="true">{{ .Name }}</a>
+    </li>
+    {{ end }}
+	</ul>
+</section>
+{{ end }}

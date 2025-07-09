@@ -11,13 +11,37 @@ import (
 )
 
 type Templates struct {
-	templates *template.Template
+	base  *template.Template
+	pages map[string]*PageTemplate
+}
+
+type PageTemplate struct {
+	*template.Template
 }
 
 func NewTemplates(pattern string) *Templates {
-	templates := template.New("").Funcs(TemplateFuncs())
+	base := template.New("").Funcs(TemplateFuncs())
+	base = template.Must(base.ParseGlob(filepath.Clean(pattern)))
+
+	// Pre-compile all page templates from the pages directory structure
+	pages := make(map[string]*PageTemplate)
+	pageGroups := []string{"devices", "features", "transports"}
+
+	for _, group := range pageGroups {
+		clone, err := base.Clone()
+		if err != nil {
+			panic(fmt.Sprintf("Failed to clone template for %s: %v", group, err))
+		}
+		_, err = clone.ParseGlob(fmt.Sprintf("templates/pages/%s/*.html", group))
+		if err != nil {
+			panic(fmt.Sprintf("Failed to parse templates for %s: %v", group, err))
+		}
+		pages[group] = &PageTemplate{Template: clone}
+	}
+
 	return &Templates{
-		templates: template.Must(templates.ParseGlob(filepath.Clean(pattern))),
+		base:  base,
+		pages: pages,
 	}
 }
 
@@ -36,31 +60,20 @@ func TemplateFuncs() template.FuncMap {
 	}
 }
 
-func (t *Templates) ExtendedTemplates(page string) (*Templates, error) {
-	clone, err := t.templates.Clone()
-	if err != nil {
-		return nil, err
-	}
-	_, err = clone.ParseFiles(fmt.Sprintf("templates/%s.html", page))
-	if err != nil {
-		return nil, err
-	}
-	return &Templates{clone}, nil
-}
-
-func (t *Templates) Render(w http.ResponseWriter, name string, data interface{}) {
+// Renders partial html (defined template blocks)
+func (pt *PageTemplate) Render(w http.ResponseWriter, name string, data interface{}) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	err := t.templates.ExecuteTemplate(w, name, data)
+	err := pt.ExecuteTemplate(w, name, data)
 	if err != nil {
 		http.Error(w, "Template rendering error: "+err.Error(), http.StatusInternalServerError)
 	}
 }
 
-func (t *Templates) RenderPage(w http.ResponseWriter, page string, data interface{}) {
-	clone, err := t.ExtendedTemplates(page)
+// Renders entire page
+func (pt *PageTemplate) RenderPage(w http.ResponseWriter, data interface{}) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	err := pt.ExecuteTemplate(w, "layout", data)
 	if err != nil {
-		http.Error(w, "Template extension error: "+err.Error(), http.StatusInternalServerError)
-		return
+		http.Error(w, "Template rendering error: "+err.Error(), http.StatusInternalServerError)
 	}
-	clone.Render(w, "layout", data)
 }
