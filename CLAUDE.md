@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Development Guidelines
+<!-- ## Development Guidelines
 1. Initial Analysis and Planning
 First think through the problem, read the codebase for relevant files, and write a plan to tasks/todo.md.
 2. Todo List Structure
@@ -19,7 +19,7 @@ We want to avoid making any massive or complex changes. Every change should impa
 7. Process Documentation
 Every time you perform actions related to the project, write a log of your actions to docs/activity.md and read that file whenever you find it necessary to assist you.
 8. Review Process
-Finally, add a review section to the tasks/todo.md file with a summary of the changes you made and any other relevant information.
+Finally, add a review section to the tasks/todo.md file with a summary of the changes you made and any other relevant information. -->
 
 ## Build Commands
 

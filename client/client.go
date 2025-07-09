@@ -57,9 +57,12 @@ func NewClient(name string, t Transport) *Client {
 func (c *Client) Start(addr string) error {
 	setupLogger()
 
+reconnect:
 	err := c.transport.Connect(addr)
 	if err != nil {
-		return err
+		slog.Error("Failed to connect, retrying in 2 seconds", "error", err)
+		time.Sleep(2 * time.Second)
+		goto reconnect
 	}
 	c.Connected = true
 	ackCh := make(chan struct{})
@@ -79,7 +82,13 @@ func (c *Client) Start(addr string) error {
 		if err != nil {
 			return err
 		}
-		c.readLoop()
+		err = c.readLoop()
+		if err != nil {
+			c.Connected = false
+			slog.Error("Connection lost, reconnecting", "error", err)
+			time.Sleep(2 * time.Second)
+			goto reconnect
+		}
 	case <-time.After(5 * time.Second):
 		return fmt.Errorf("timeout waiting for identify_ack")
 	}
@@ -131,12 +140,12 @@ retryIdentify:
 	}
 }
 
-func (c *Client) readLoop() {
+func (c *Client) readLoop() error {
 	for {
 		msg, err := c.transport.Read()
 		if err != nil {
 			slog.Error("read error", "error", err.Error())
-			return
+			return err
 		}
 		slog.Debug("Message Received", "type", msg.Type, "topic", msg.Topic, "sender", msg.Sender, "size", len(msg.Payload))
 
