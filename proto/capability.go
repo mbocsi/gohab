@@ -6,10 +6,10 @@ import (
 	"strings"
 )
 
-type Capability struct {
+type Feature struct {
 	Name        string            `json:"name"`                  // Unique key: "temperature", "led", etc.
 	Description string            `json:"description,omitempty"` // Human-readable purpose
-	Methods     CapabilityMethods `json:"methods"`               // Routing topics (Generated topics will be name/method)
+	Methods     FeatureMethods `json:"methods"`               // Routing topics (Generated topics will be name/method)
 }
 
 type DataType struct {
@@ -27,16 +27,16 @@ type Method struct {
 	Description  string              `json:"description,omitempty"`
 }
 
-type CapabilityMethods struct {
+type FeatureMethods struct {
 	Data    Method `json:"data,omitempty"`
 	Status  Method `json:"status,omitempty"`
 	Command Method `json:"command,omitempty"`
 	Query   Method `json:"query,omitempty"`
 }
 
-func (c *Capability) Validate() error {
+func (c *Feature) Validate() error {
 	if strings.TrimSpace(c.Name) == "" {
-		return errors.New("capability name is required")
+		return errors.New("feature name is required")
 	}
 
 	// Ensure at least one method is defined
@@ -44,7 +44,7 @@ func (c *Capability) Validate() error {
 		!c.Methods.Status.IsDefined() &&
 		!c.Methods.Command.IsDefined() &&
 		!c.Methods.Query.IsDefined() {
-		return fmt.Errorf("capability %q must define at least one method", c.Name)
+		return fmt.Errorf("feature %q must define at least one method", c.Name)
 	}
 
 	// Validate each method individually

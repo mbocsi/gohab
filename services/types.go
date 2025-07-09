@@ -9,7 +9,7 @@ type DeviceInfo struct {
 	ID            string                       `json:"id"`
 	Name          string                       `json:"name"`
 	Firmware      string                       `json:"firmware"`
-	Capabilities  map[string]proto.Capability `json:"capabilities"`
+	Features  map[string]proto.Feature `json:"features"`
 	Subscriptions map[string]struct{}         `json:"subscriptions"`
 	Connected     bool                         `json:"connected"`
 	TransportName string                       `json:"transport_name"`
@@ -19,7 +19,7 @@ type DeviceInfo struct {
 // FeatureInfo represents feature/capability information
 type FeatureInfo struct {
 	Topic       string            `json:"topic"`
-	Capability  proto.Capability  `json:"capability"`
+	Feature  proto.Feature  `json:"feature"`
 	SourceID    string            `json:"source_id"`
 	SourceName  string            `json:"source_name"`
 	Subscribers []DeviceInfo      `json:"subscribers"`

@@ -9,8 +9,8 @@ import (
 	"github.com/mbocsi/gohab/server"
 )
 
-// WebTransport implements the Transport interface for web-based clients
-type WebTransport struct {
+// InMemoryTransport implements the Transport interface for in-memory clients
+type InMemoryTransport struct {
 	onMessage    func(proto.Message)
 	onConnect    func(server.Client) error
 	onDisconnect func(server.Client)
@@ -24,17 +24,17 @@ type WebTransport struct {
 	connected  bool
 }
 
-func NewWebTransport() *WebTransport {
-	return &WebTransport{
-		name:        "Web Transport",
-		description: "Transport for web UI clients",
+func NewInMemoryTransport() *InMemoryTransport {
+	return &InMemoryTransport{
+		name:        "In-Memory Transport",
+		description: "In-memory transport for web UI clients",
 		clients:     make(map[string]server.Client),
 		maxClients:  4,
 		connected:   false,
 	}
 }
 
-func (wt *WebTransport) Start() error {
+func (wt *InMemoryTransport) Start() error {
 	slog.Info("Starting in-memory transport", "addr", "in-memory")
 	if wt.onConnect == nil || wt.onDisconnect == nil || wt.onMessage == nil {
 		return fmt.Errorf("The OnConnect, OnDisconnect, or OnMessage function is not defined. This transport is likely being called outside of the server.")
@@ -43,19 +43,19 @@ func (wt *WebTransport) Start() error {
 	return nil
 }
 
-func (wt *WebTransport) OnMessage(handler func(proto.Message)) {
+func (wt *InMemoryTransport) OnMessage(handler func(proto.Message)) {
 	wt.onMessage = handler
 }
 
-func (wt *WebTransport) OnConnect(handler func(server.Client) error) {
+func (wt *InMemoryTransport) OnConnect(handler func(server.Client) error) {
 	wt.onConnect = handler
 }
 
-func (wt *WebTransport) OnDisconnect(handler func(server.Client)) {
+func (wt *InMemoryTransport) OnDisconnect(handler func(server.Client)) {
 	wt.onDisconnect = handler
 }
 
-func (wt *WebTransport) Shutdown() error {
+func (wt *InMemoryTransport) Shutdown() error {
 	wt.cmu.Lock()
 	defer wt.cmu.Unlock()
 
@@ -72,7 +72,7 @@ func (wt *WebTransport) Shutdown() error {
 	return nil
 }
 
-func (wt *WebTransport) Meta() server.TransportMetadata {
+func (wt *InMemoryTransport) Meta() server.TransportMetadata {
 	wt.cmu.RLock()
 	clients := wt.clients
 	wt.cmu.RUnlock()
@@ -88,16 +88,16 @@ func (wt *WebTransport) Meta() server.TransportMetadata {
 	}
 }
 
-func (wt *WebTransport) SetName(name string) {
+func (wt *InMemoryTransport) SetName(name string) {
 	wt.name = name
 }
 
-func (wt *WebTransport) SetDescription(description string) {
+func (wt *InMemoryTransport) SetDescription(description string) {
 	wt.description = description
 }
 
 // RegisterClient registers a web client with the transport (Unique to this transport)
-func (wt *WebTransport) RegisterClient(client *WebClient) error {
+func (wt *InMemoryTransport) RegisterClient(client *WebClient) error {
 	wt.cmu.Lock()
 	defer wt.cmu.Unlock()
 
@@ -109,7 +109,7 @@ func (wt *WebTransport) RegisterClient(client *WebClient) error {
 }
 
 // UnregisterClient unregisters a web client from the transport (Unique to this transport)
-func (wt *WebTransport) UnregisterClient(clientID string) {
+func (wt *InMemoryTransport) UnregisterClient(clientID string) {
 	wt.cmu.Lock()
 	client, exists := wt.clients[clientID]
 	if exists {
@@ -123,7 +123,7 @@ func (wt *WebTransport) UnregisterClient(clientID string) {
 }
 
 // SendMessage sends a message through the transport (Unique to this transport, needs sender id)
-func (wt *WebTransport) SendMessage(msg proto.Message) error {
+func (wt *InMemoryTransport) SendMessage(msg proto.Message) error {
 	wt.onMessage(msg)
 	return nil
 }

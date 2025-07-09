@@ -16,7 +16,7 @@ type Message struct {
 type IdentifyPayload struct {
 	ProposedName string       `json:"proposed_name"` // Optional human-readable alias
 	Firmware     string       `json:"firmware"`      // Firmware version or build tag
-	Capabilities []Capability `json:"capabilities"`  // List of introspectable capabilities
+	Features []Feature `json:"features"`  // List of introspectable features
 }
 
 type SubscriptionPayload struct {

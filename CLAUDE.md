@@ -2,25 +2,6 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-<!-- ## Development Guidelines
-1. Initial Analysis and Planning
-First think through the problem, read the codebase for relevant files, and write a plan to tasks/todo.md.
-2. Todo List Structure
-The plan should have a list of todo items that you can check off as you complete them.
-3. Plan Verification
-Before you begin working, check in with me and I will verify the plan.
-4. Task Execution
-Then, begin working on the todo items, marking them as complete as you go.
-5. Communication
-Please every step of the way just give me a high level explanation of what changes you made.
-6. Simplicity Principle
-Make every task and code change you do as simple as possible. Use existing structures and abstractions whenever it makes sense. 
-We want to avoid making any massive or complex changes. Every change should impact as little code as possible. Everything is about simplicity.
-7. Process Documentation
-Every time you perform actions related to the project, write a log of your actions to docs/activity.md and read that file whenever you find it necessary to assist you.
-8. Review Process
-Finally, add a review section to the tasks/todo.md file with a summary of the changes you made and any other relevant information. -->
-
 ## Build Commands
 
 - `make all` - Build all components (server and all client examples)
@@ -29,6 +10,20 @@ Finally, add a review section to the tasks/todo.md file with a summary of the ch
 - `make client2` - Build client2 example (outputs to `bin/client2`)
 - `make client3` - Build client3 example (outputs to `bin/client3`)
 - `make clean` - Remove all built binaries from bin/ directory
+
+## Testing
+
+- `make test` - Run all unit tests
+- `make test-integration` - Run integration tests (when available)
+- `make test-coverage` - Run tests with coverage report
+
+**Testing Requirements:**
+- ALWAYS run tests after making changes: `make test`
+- When adding new features, ALWAYS create corresponding unit tests
+- When modifying existing functionality, ALWAYS update related tests
+- Test files should be named `*_test.go` and placed alongside the code they test
+- Integration tests should go in `tests/` directory
+- Ensure test coverage remains high - aim for >80% coverage on new code
 
 ## Running the Application
 

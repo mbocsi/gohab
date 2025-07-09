@@ -18,7 +18,7 @@ type WebClient struct {
 	addr      string
 	server    *http.Server
 	services  *services.ServiceContainer
-	transport *WebTransport
+	transport *InMemoryTransport
 	templates *Templates
 	server.DeviceMetadata
 }
@@ -31,7 +31,7 @@ func NewWebClient(serviceContainer *services.ServiceContainer) *WebClient {
 			Id:           "web-ui",
 			Name:         "Web UI Client",
 			Firmware:     "1.0.0",
-			Capabilities: make(map[string]proto.Capability),
+			Features: make(map[string]proto.Feature),
 			Subs:         make(map[string]struct{}),
 		},
 	}

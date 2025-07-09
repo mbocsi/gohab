@@ -56,12 +56,12 @@ func (fs *FeatureServiceImpl) GetFeature(topic string) (*FeatureInfo, error) {
 
 	meta := device.Meta()
 	meta.Mu.RLock()
-	capability, exists := meta.Capabilities[topic]
+	feature, exists := meta.Features[topic]
 	if !exists {
 		meta.Mu.RUnlock()
 		return nil, ServiceError{
 			Code:    ErrCodeNotFound,
-			Message: "Capability not found for topic: " + topic,
+			Message: "Feature not found for topic: " + topic,
 		}
 	}
 	sourceName := meta.Name
@@ -76,7 +76,7 @@ func (fs *FeatureServiceImpl) GetFeature(topic string) (*FeatureInfo, error) {
 
 	return &FeatureInfo{
 		Topic:       topic,
-		Capability:  capability,
+		Feature:  feature,
 		SourceID:    sourceID,
 		SourceName:  sourceName,
 		Subscribers: subscribers,
@@ -107,25 +107,25 @@ func (fs *FeatureServiceImpl) GetFeaturesForDevice(deviceID string) ([]FeatureIn
 
 	meta := device.Meta()
 	meta.Mu.RLock()
-	capabilities := meta.Capabilities
+	features := meta.Features
 	meta.Mu.RUnlock()
 
-	var features []FeatureInfo
-	for topic, capability := range capabilities {
+	var featuresList []FeatureInfo
+	for topic, feature := range features {
 		// Get subscribers for this feature
 		subscribers, err := fs.GetFeatureSubscribers(topic)
 		if err != nil {
 			subscribers = []DeviceInfo{}
 		}
 
-		features = append(features, FeatureInfo{
+		featuresList = append(featuresList, FeatureInfo{
 			Topic:       topic,
-			Capability:  capability,
+			Feature:  feature,
 			SourceID:    deviceID,
 			SourceName:  meta.Name,
 			Subscribers: subscribers,
 		})
 	}
 
-	return features, nil
+	return featuresList, nil
 }

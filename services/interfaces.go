@@ -10,7 +10,7 @@ type DeviceService interface {
 	ListDevices() ([]DeviceInfo, error)
 	GetDevice(id string) (*DeviceInfo, error)
 	RenameDevice(id, name string) error
-	GetDeviceCapabilities(id string) (map[string]proto.Capability, error)
+	GetDeviceFeatures(id string) (map[string]proto.Feature, error)
 
 	// Device status
 	IsDeviceConnected(id string) (bool, error)

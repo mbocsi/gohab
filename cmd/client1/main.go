@@ -24,10 +24,10 @@ func main() {
 	tcp := client.NewTCPTransport()
 	c := client.NewClient("sensor-a", tcp)
 
-	err := c.AddCapability(proto.Capability{
+	err := c.AddFeature(proto.Feature{
 		Name:        "temperature",
 		Description: "A temperature sensor outside on the deck",
-		Methods: proto.CapabilityMethods{
+		Methods: proto.FeatureMethods{
 			Data: proto.Method{Description: "Temperature outside the deck",
 				OutputSchema: map[string]proto.DataType{
 					"temperature": {Type: "number", Unit: "Celcius"},

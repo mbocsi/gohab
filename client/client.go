@@ -19,9 +19,9 @@ type Client struct {
 	transport Transport
 	Id        string
 
-	// Capabilities
-	capMu        sync.RWMutex
-	capabilities map[string]proto.Capability
+	// Features
+	featMu        sync.RWMutex
+	features map[string]proto.Feature
 
 	// Handlers
 	handlerMu       sync.RWMutex
@@ -44,7 +44,7 @@ func NewClient(name string, t Transport) *Client {
 		Name:            name,
 		Connected:       false,
 		transport:       t,
-		capabilities:    make(map[string]proto.Capability),
+		features:    make(map[string]proto.Feature),
 		commandHandlers: make(map[string]func(proto.Message) error),
 		queryHandlers:   make(map[string]func(proto.Message) (payload any, err error)),
 		resChans:        make(map[string]chan proto.Message),
@@ -270,7 +270,7 @@ func (c *Client) sendIdentify() error {
 		ProposedName: c.Name,
 		// TODO: Don't hardcode firmware
 		Firmware:     "v1.0.0",
-		Capabilities: slices.Collect(maps.Values(c.capabilities)),
+		Features: slices.Collect(maps.Values(c.features)),
 	}
 	payload, err := json.Marshal(idPayload)
 	if err != nil {
@@ -281,26 +281,26 @@ func (c *Client) sendIdentify() error {
 		Timestamp: time.Now().Unix(),
 		Payload:   payload,
 	}
-	slog.Info("Sending identify message", "proposed_name", idPayload.ProposedName, "firmware", idPayload.Firmware, "capabilities", len(idPayload.Capabilities))
+	slog.Info("Sending identify message", "proposed_name", idPayload.ProposedName, "firmware", idPayload.Firmware, "features", len(idPayload.Features))
 	return c.transport.Send(msg)
 }
 
-func (c *Client) AddCapability(cap proto.Capability) error {
-	if err := cap.Validate(); err != nil {
+func (c *Client) AddFeature(feat proto.Feature) error {
+	if err := feat.Validate(); err != nil {
 		return err
 	}
-	c.capabilities[cap.Name] = cap
+	c.features[feat.Name] = feat
 	return nil
 }
 
 func (c *Client) GetDataFunction(name string) (func(payload any) error, error) {
-	cap, ok := c.capabilities[name]
+	feat, ok := c.features[name]
 	if !ok {
-		return nil, fmt.Errorf("capability %q not found", name)
+		return nil, fmt.Errorf("feature %q not found", name)
 	}
 
-	if !cap.Methods.Data.IsDefined() {
-		return nil, fmt.Errorf("capability %q does not support data method", name)
+	if !feat.Methods.Data.IsDefined() {
+		return nil, fmt.Errorf("feature %q does not support data method", name)
 	}
 
 	fn := func(payload any) error {
@@ -321,13 +321,13 @@ func (c *Client) GetDataFunction(name string) (func(payload any) error, error) {
 }
 
 func (c *Client) GetStatusFunction(name string) (func(payload any) error, error) {
-	cap, ok := c.capabilities[name]
+	feat, ok := c.features[name]
 	if !ok {
-		return nil, fmt.Errorf("capability %q not found", name)
+		return nil, fmt.Errorf("feature %q not found", name)
 	}
 
-	if !cap.Methods.Status.IsDefined() {
-		return nil, fmt.Errorf("capability %q does not support status method", name)
+	if !feat.Methods.Status.IsDefined() {
+		return nil, fmt.Errorf("feature %q does not support status method", name)
 	}
 
 	fn := func(payload any) error {
@@ -348,16 +348,16 @@ func (c *Client) GetStatusFunction(name string) (func(payload any) error, error)
 }
 
 func (c *Client) RegisterCommandHandler(name string, handler func(msg proto.Message) error) error {
-	cap, ok := c.capabilities[name]
+	feat, ok := c.features[name]
 	if !ok {
-		return fmt.Errorf("capability %q not found", name)
+		return fmt.Errorf("feature %q not found", name)
 	}
 
-	if !cap.Methods.Command.IsDefined() {
-		return fmt.Errorf("capability %q does not support command method", name)
+	if !feat.Methods.Command.IsDefined() {
+		return fmt.Errorf("feature %q does not support command method", name)
 	}
 	if handler == nil {
-		return fmt.Errorf("command handler must be provided for capability %q", name)
+		return fmt.Errorf("command handler must be provided for feature %q", name)
 	}
 
 	c.commandHandlers[name] = handler
@@ -365,16 +365,16 @@ func (c *Client) RegisterCommandHandler(name string, handler func(msg proto.Mess
 }
 
 func (c *Client) RegisterQueryHandler(name string, handler func(msg proto.Message) (any, error)) error {
-	cap, ok := c.capabilities[name]
+	feat, ok := c.features[name]
 	if !ok {
-		return fmt.Errorf("capability %q not found", name)
+		return fmt.Errorf("feature %q not found", name)
 	}
 
-	if !cap.Methods.Query.IsDefined() {
-		return fmt.Errorf("capability %q does not support query method", name)
+	if !feat.Methods.Query.IsDefined() {
+		return fmt.Errorf("feature %q does not support query method", name)
 	}
 	if handler == nil {
-		return fmt.Errorf("query handler must be provided for capability %q", name)
+		return fmt.Errorf("query handler must be provided for feature %q", name)
 	}
 
 	c.queryHandlers[name] = handler

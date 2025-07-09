@@ -32,7 +32,7 @@ func convertDeviceMetadata(meta *server.DeviceMetadata) DeviceInfo {
 		ID:            meta.Id,
 		Name:          meta.Name,
 		Firmware:      meta.Firmware,
-		Capabilities:  meta.Capabilities,
+		Features:  meta.Features,
 		Subscriptions: meta.Subs,
 		Connected:     true, // If it's in registry, it's connected
 		TransportName: transportName,

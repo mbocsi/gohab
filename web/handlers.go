@@ -79,14 +79,14 @@ func (w *WebClient) HandleFeatureDetail(wr http.ResponseWriter, r *http.Request)
 		}
 
 		w.templates.pages["features"].RenderPage(wr, map[string]interface{}{
-			"Feature":       feature.Capability,
+			"Feature":       feature.Feature,
 			"FeatureSource": feature,
 			"Features":      features,
 			"Subscriptions": feature.Subscribers,
 		})
 	} else {
 		w.templates.pages["features"].Render(wr, "content", map[string]interface{}{
-			"Feature":       feature.Capability,
+			"Feature":       feature.Feature,
 			"FeatureSource": feature,
 			"Subscriptions": feature.Subscribers,
 		})

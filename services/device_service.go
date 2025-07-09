@@ -68,8 +68,8 @@ func (ds *DeviceServiceImpl) RenameDevice(id, name string) error {
 	return nil
 }
 
-// GetDeviceCapabilities returns device capabilities
-func (ds *DeviceServiceImpl) GetDeviceCapabilities(id string) (map[string]proto.Capability, error) {
+// GetDeviceFeatures returns device features
+func (ds *DeviceServiceImpl) GetDeviceFeatures(id string) (map[string]proto.Feature, error) {
 	device, exists := ds.registry.Get(id)
 	if !exists {
 		return nil, ServiceError{
@@ -80,13 +80,13 @@ func (ds *DeviceServiceImpl) GetDeviceCapabilities(id string) (map[string]proto.
 	
 	meta := device.Meta()
 	meta.Mu.RLock()
-	capabilities := make(map[string]proto.Capability)
-	for k, v := range meta.Capabilities {
-		capabilities[k] = v
+	features := make(map[string]proto.Feature)
+	for k, v := range meta.Features {
+		features[k] = v
 	}
 	meta.Mu.RUnlock()
 	
-	return capabilities, nil
+	return features, nil
 }
 
 // IsDeviceConnected checks if device is connected

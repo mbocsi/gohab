@@ -113,12 +113,12 @@ func (s *GohabServer) RemoveDevice(client Client) {
 	s.registery.Delete(client.Meta().Id)
 
 	s.topicSourcesMu.Lock()
-	for _, capability := range client.Meta().Capabilities {
-		if _, ok := s.topicSources[capability.Name]; !ok {
-			slog.Error("Capability name/topic does not exist in topic sources", "topic", capability.Name)
+	for _, feature := range client.Meta().Features {
+		if _, ok := s.topicSources[feature.Name]; !ok {
+			slog.Error("Feature name/topic does not exist in topic sources", "topic", feature.Name)
 			continue
 		}
-		delete(s.topicSources, capability.Name)
+		delete(s.topicSources, feature.Name)
 	}
 	s.topicSourcesMu.Unlock()
 }
@@ -162,25 +162,25 @@ func (s *GohabServer) handleIdentify(msg proto.Message) {
 		return
 	}
 
-	capabilities := make(map[string]proto.Capability)
-	for _, capability := range idPayload.Capabilities {
-		capabilities[capability.Name] = capability
+	features := make(map[string]proto.Feature)
+	for _, feature := range idPayload.Features {
+		features[feature.Name] = feature
 	}
 
 	client.Meta().Mu.Lock()
 	client.Meta().Id = id
 	client.Meta().Name = idPayload.ProposedName
 	client.Meta().Firmware = idPayload.Firmware
-	client.Meta().Capabilities = capabilities
+	client.Meta().Features = features
 	client.Meta().Mu.Unlock()
 
 	s.topicSourcesMu.Lock()
-	for _, capability := range client.Meta().Capabilities {
-		if _, ok := s.topicSources[capability.Name]; ok {
-			slog.Error("Capability name/topic already exists in system: skipping source registration", "topic", capability.Name)
+	for _, feature := range client.Meta().Features {
+		if _, ok := s.topicSources[feature.Name]; ok {
+			slog.Error("Feature name/topic already exists in system: skipping source registration", "topic", feature.Name)
 			continue
 		}
-		s.topicSources[capability.Name] = client.Meta().Id
+		s.topicSources[feature.Name] = client.Meta().Id
 	}
 	s.topicSourcesMu.Unlock()
 

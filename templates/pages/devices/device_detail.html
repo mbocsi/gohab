@@ -16,7 +16,7 @@
 
     <h3>Features</h3>
 	<ul>
-    {{ range .Device.Capabilities }}
+    {{ range .Device.Features }}
     <li>
         <a href="/features/{{ .Name }}" hx-get="/features/{{ .Name }}" hx-target="#main-content" hx-swap="innerHTML" hx-push-url="true">{{ .Name }}</a>
     </li>

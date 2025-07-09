@@ -23,9 +23,9 @@ func main() {
 	gohabServer := server.NewGohabServer(registry, broker)
 	gohabServer.RegisterTransport(tcpServer)
 
-	// Create web transport
-	webTransport := web.NewWebTransport()
-	gohabServer.RegisterTransport(webTransport)
+	// Create in-memory transport
+	inMemoryTransport := web.NewInMemoryTransport()
+	gohabServer.RegisterTransport(inMemoryTransport)
 
 	// Create service layer (Maybe should just take Gohabserver as dependency)
 	serviceManager := services.NewServiceManager(
@@ -38,7 +38,7 @@ func main() {
 
 	// Create web client with service layer and transport
 	webClient := web.NewWebClient(serviceManager.GetServices())
-	webTransport.RegisterClient(webClient)
+	inMemoryTransport.RegisterClient(webClient)
 
 	go webClient.Start(":8080")
 	defer webClient.Shutdown()

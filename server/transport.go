@@ -36,7 +36,7 @@ type DeviceMetadata struct {
 	Name         string
 	LastSeen     time.Time
 	Firmware     string
-	Capabilities map[string]proto.Capability
+	Features map[string]proto.Feature
 	Subs         map[string]struct{}
 	Transport    Transport
 	Mu           sync.RWMutex

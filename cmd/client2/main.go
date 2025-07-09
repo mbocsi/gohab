@@ -38,10 +38,10 @@ func main() {
 	tcp := client.NewTCPTransport()
 	c := client.NewClient("display-a", tcp)
 
-	err := c.AddCapability(proto.Capability{
+	err := c.AddFeature(proto.Feature{
 		Name:        "display_temperature",
 		Description: "The temperature field of the display in the living room",
-		Methods: proto.CapabilityMethods{
+		Methods: proto.FeatureMethods{
 			Command: proto.Method{
 				Description: "Set the color of the temperature field on the display",
 				InputSchema: map[string]proto.DataType{
