@@ -14,6 +14,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Testing
 
 - `make test` - Run all unit tests
+- `make test-server` - Run server-side tests (server, services, web, proto packages)
+- `make test-client` - Run client-side tests (client package)
 - `make test-integration` - Run integration tests (when available)
 - `make test-coverage` - Run tests with coverage report
 

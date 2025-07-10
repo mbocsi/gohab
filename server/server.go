@@ -173,6 +173,13 @@ func (s *GohabServer) RegisterDevice(client Client) error {
 func (s *GohabServer) RemoveDevice(client Client) {
 	s.registery.Delete(client.Meta().Id)
 
+	// Remove client from all broker subscriptions
+	client.Meta().Mu.RLock()
+	for topic := range client.Meta().Subs {
+		s.broker.Unsubscribe(topic, client)
+	}
+	client.Meta().Mu.RUnlock()
+
 	s.topicSourcesMu.Lock()
 	for _, feature := range client.Meta().Features {
 		if _, ok := s.topicSources[feature.Name]; !ok {
@@ -320,7 +327,6 @@ func (s *GohabServer) handleSubscription(msg proto.Message) {
 	}
 }
 
-// TODO: Implement these
 func (s *GohabServer) handleCommand(msg proto.Message) {
 	s.topicSourcesMu.RLock()
 	if id, ok := s.topicSources[msg.Topic]; !ok {
