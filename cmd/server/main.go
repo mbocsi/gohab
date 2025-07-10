@@ -19,6 +19,12 @@ func main() {
 	tcpServer.SetMaxClients(2)
 	tcpServer.SetDescription("The main TCP server for just the display and temperature")
 
+	// Create WebSocket transport
+	wsServer := server.NewWSTransport("0.0.0.0:8889")
+	wsServer.SetName("Main WebSocket server")
+	wsServer.SetMaxClients(2)
+	wsServer.SetDescription("The main WebSocket server for web clients")
+
 	// Create server with dependencies and optional logging config
 	gohabServer := server.NewGohabServer(registry, broker)
 	
@@ -28,6 +34,7 @@ func main() {
 	// gohabServer.SetLogConfig(server.DefaultLogConfig())   // Default debug level
 	
 	gohabServer.RegisterTransport(tcpServer)
+	gohabServer.RegisterTransport(wsServer)
 
 	// Create in-memory transport
 	inMemoryTransport := web.NewInMemoryTransport()

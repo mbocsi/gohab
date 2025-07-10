@@ -35,8 +35,8 @@ func handleDisplayCommand(msg proto.Message) error {
 func main() {
 	slog.Info("Starting client2")
 
-	tcp := client.NewTCPTransport()
-	c := client.NewClient("display-a", tcp)
+	ws := client.NewWebSocketTransport()
+	c := client.NewClient("display-a", ws)
 
 	err := c.AddFeature(proto.Feature{
 		Name:        "display_temperature",
@@ -54,7 +54,7 @@ func main() {
 	c.RegisterCommandHandler("display_temperature", handleDisplayCommand)
 	c.Subscribe("temperature", handleSensorTemp)
 
-	err = c.Start("localhost:8888")
+	err = c.Start("ws://localhost:8889")
 	if err != nil {
 		panic(err)
 	}
