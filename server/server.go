@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -13,10 +14,17 @@ import (
 	"github.com/mbocsi/gohab/proto"
 )
 
+type LogConfig struct {
+	Level   slog.Level
+	Handler slog.Handler
+	Output  io.Writer
+}
+
 type GohabServer struct {
 	registery  *DeviceRegistry
 	broker     *Broker
 	transports map[string]Transport
+	logConfig  *LogConfig
 
 	topicSourcesMu sync.RWMutex
 	topicSources   map[string]string // topic → deviceID
@@ -28,6 +36,16 @@ func NewGohabServer(registry *DeviceRegistry, broker *Broker) *GohabServer {
 		broker:       broker,
 		transports:   make(map[string]Transport),
 		topicSources: make(map[string]string),
+	}
+}
+
+func NewGohabServerWithLogging(registry *DeviceRegistry, broker *Broker, logConfig *LogConfig) *GohabServer {
+	return &GohabServer{
+		registery:    registry,
+		broker:       broker,
+		transports:   make(map[string]Transport),
+		topicSources: make(map[string]string),
+		logConfig:    logConfig,
 	}
 }
 
@@ -55,30 +73,73 @@ func (s *GohabServer) GetTopicSources() map[string]string {
 	return result
 }
 
+func (s *GohabServer) SetLogConfig(config *LogConfig) {
+	s.logConfig = config
+}
+
 func (s *GohabServer) RegisterTransport(t Transport) {
 	t.OnMessage(s.Handle)
 	t.OnConnect(s.RegisterDevice)
 	t.OnDisconnect(s.RemoveDevice)
-	
+
 	// Get transport metadata and use ID as key
 	meta := t.Meta()
 	if meta.ID == "" {
 		// Generate an ID if not set
 		meta.ID = meta.Protocol + "-" + meta.Address
 	}
-	
+
 	s.transports[meta.ID] = t
 }
 
-func setupLogger() {
-	handler := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
-		Level: slog.LevelDebug,
-	})
+func DefaultLogConfig() *LogConfig {
+	return &LogConfig{
+		Level:  slog.LevelInfo,
+		Output: os.Stdout,
+	}
+}
+
+func QuietLogConfig() *LogConfig {
+	return &LogConfig{
+		Level:  slog.LevelError,
+		Output: os.Stdout,
+	}
+}
+
+func SuppressedLogConfig() *LogConfig {
+	return &LogConfig{
+		Level:  slog.LevelError,
+		Output: io.Discard,
+	}
+}
+
+func (s *GohabServer) setupLogger() {
+	var handler slog.Handler
+
+	if s.logConfig == nil {
+		handler = slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+			Level: slog.LevelInfo,
+		})
+	} else {
+		output := s.logConfig.Output
+		if output == nil {
+			output = os.Stdout
+		}
+
+		if s.logConfig.Handler != nil {
+			handler = s.logConfig.Handler
+		} else {
+			handler = slog.NewJSONHandler(output, &slog.HandlerOptions{
+				Level: s.logConfig.Level,
+			})
+		}
+	}
+
 	slog.SetDefault(slog.New(handler))
 }
 
 func (s *GohabServer) Start() error {
-	setupLogger()
+	s.setupLogger()
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	s.start(ctx)

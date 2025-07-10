@@ -19,8 +19,14 @@ func main() {
 	tcpServer.SetMaxClients(2)
 	tcpServer.SetDescription("The main TCP server for just the display and temperature")
 
-	// Create server with dependencies
+	// Create server with dependencies and optional logging config
 	gohabServer := server.NewGohabServer(registry, broker)
+	
+	// Example: Set custom logging configuration
+	// gohabServer.SetLogConfig(server.QuietLogConfig())     // Only errors
+	// gohabServer.SetLogConfig(server.SuppressedLogConfig()) // No logs at all
+	// gohabServer.SetLogConfig(server.DefaultLogConfig())   // Default debug level
+	
 	gohabServer.RegisterTransport(tcpServer)
 
 	// Create in-memory transport
