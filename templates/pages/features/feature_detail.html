@@ -49,10 +49,20 @@
             {{ end }}
         </ul>
     </article>
-    <h3>Live Messages</h2>
-    <div id="messages" hx-ext="sse" sse-connect="/events/topics/{{ .Feature.Name }}" sse-swap="message">
-        <!-- New messages will be appended here -->
+    <h3>Live Messages</h3>
+    <div id="messages" hx-ext="sse" sse-connect="/events/topics/{{ .Feature.Name }}" sse-swap="message" hx-swap="afterbegin">
+        <!-- New messages will be appended here via SSE -->
     </div>
+    
+    <!-- <script>
+        // Close SSE connection when navigating away
+        document.addEventListener('htmx:beforeRequest', function(event) {
+            const messages = document.getElementById('messages');
+            if (messages && messages.EventSource) {
+                messages.EventSource.close();
+            }
+        });
+    </script> -->
 </section>
 {{ else }}
 <div class="default-content">
@@ -97,4 +107,15 @@
         {{ end }}
     </dl>
     {{ end }}
+{{ end }}
+
+{{ define "live-message" }} 
+<div class="live-message">
+    <div class="message-header">
+        <span class="message-type">{{ .Type }}</span>
+        <span class="message-sender">{{ .Sender }}</span>
+        <span class="message-time">{{ .FormattedTime }}</span>
+    </div>
+    <div class="message-payload">{{ .Payload }}</div>
+</div>
 {{ end }}

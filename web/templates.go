@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -72,12 +73,8 @@ func TemplateFuncs() template.FuncMap {
 }
 
 // Renders partial html (defined template blocks)
-func (pt *PageTemplate) Render(w http.ResponseWriter, name string, data interface{}) {
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	err := pt.ExecuteTemplate(w, name, data)
-	if err != nil {
-		http.Error(w, "Template rendering error: "+err.Error(), http.StatusInternalServerError)
-	}
+func (pt *PageTemplate) Render(w io.Writer, name string, data interface{}) error {
+	return pt.ExecuteTemplate(w, name, data)
 }
 
 // Renders entire page

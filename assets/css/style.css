@@ -176,3 +176,57 @@ html, body {
     border: 1px solid #ddd;
     border-radius: 4px;
   }
+
+  /* Live message styles */
+  .live-message {
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    padding: 0.5rem;
+    margin-bottom: 0.5rem;
+    background-color: #fdfdfd;
+    font-size: 0.9rem;
+  }
+
+  .message-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.3rem;
+    padding-bottom: 0.3rem;
+    border-bottom: 1px solid #f0f0f0;
+  }
+
+  .message-type {
+    font-weight: bold;
+    color: #007acc;
+    background-color: #e6f4ff;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 0.8rem;
+  }
+
+  .message-sender {
+    color: #666;
+    font-size: 0.8rem;
+  }
+
+  .message-time {
+    color: #999;
+    font-size: 0.8rem;
+  }
+
+  .message-payload {
+    font-family: monospace;
+    background-color: #f8f8f8;
+    padding: 0.3rem;
+    border-radius: 3px;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  .stream-status {
+    color: #666;
+    font-style: italic;
+    text-align: center;
+    padding: 1rem;
+  }
