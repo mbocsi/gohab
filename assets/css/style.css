@@ -65,6 +65,10 @@ html, body {
   
   main {
     padding: 1rem;
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
   }
   
   footer {
@@ -97,6 +101,69 @@ html, body {
     border-left: 4px solid #007acc;
     background-color: #f9f9f9;
   }
+
+  .feature-header {
+    margin-bottom: 1rem;
+  }
+
+  .methods-section {
+    margin-top: 1rem;
+  }
+
+  .methods-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1rem;
+    margin-top: 0.5rem;
+  }
+
+  .method-card {
+    background-color: #ffffff;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    padding: 0.75rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  }
+
+  .method-title {
+    margin: 0 0 0.5rem 0;
+    color: #007acc;
+    font-size: 1rem;
+    font-weight: bold;
+  }
+
+  .method-description {
+    margin: 0 0 0.5rem 0;
+    font-size: 0.9rem;
+    color: #666;
+  }
+
+  .method-details {
+    font-size: 0.85rem;
+  }
+
+  .method-details .schema {
+    margin: 0.5rem 0 0 0;
+  }
+
+  .method-details h6 {
+    margin: 0.5rem 0 0.25rem 0;
+    font-size: 0.9rem;
+    color: #555;
+  }
+
+  .method-details dl {
+    margin: 0;
+  }
+
+  .method-details dt {
+    margin-bottom: 0.25rem;
+  }
+
+  .method-details dd {
+    margin-left: 1rem;
+    margin-bottom: 0.5rem;
+  }
   
   .feature-name {
     margin-top: 0;
@@ -128,6 +195,31 @@ html, body {
     display: flex;
     flex-direction: row;
     flex-grow: 1;
+    height: calc(100vh - 60px); /* Account for header height */
+  }
+
+  header {
+    height: 60px;
+    display: flex;
+    align-items: center;
+    padding: 0 1rem;
+    border-bottom: 1px solid #ccc;
+    background-color: #f8f9fa;
+  }
+
+  header nav {
+    display: flex;
+    gap: 1rem;
+  }
+
+  header nav a {
+    text-decoration: none;
+    color: #007acc;
+    font-weight: 500;
+  }
+
+  header nav a:hover {
+    text-decoration: underline;
   }
 
   /* Button styles */
@@ -184,7 +276,11 @@ html, body {
     padding: 0.5rem;
     margin-bottom: 0.5rem;
     background-color: #fdfdfd;
-    font-size: 0.9rem;
+    font-size: 0.85rem;
+    flex-shrink: 0;
+    max-width: 100%;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
   }
 
   .message-header {
@@ -229,4 +325,89 @@ html, body {
     font-style: italic;
     text-align: center;
     padding: 1rem;
+  }
+
+  /* Feature detail layout */
+  .feature-detail-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%; /* Use full available height from parent */
+    gap: 1rem;
+    max-width: 100%;
+    overflow: hidden;
+  }
+
+  .feature-info {
+    flex: 0 0 60%; /* Take up 60% of available height */
+    overflow-y: auto;
+    max-width: 100%;
+    word-wrap: break-word;
+    max-height: 60vh; /* Ensure it doesn't exceed 60% of viewport */
+  }
+
+  .messages-section {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 300px; /* Guarantee minimum space for messages */
+    border-top: 1px solid #ccc;
+    padding-top: 1rem;
+    max-width: 100%;
+  }
+
+  .messages-title {
+    margin-top: 0;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid #007acc;
+    flex-shrink: 0;
+  }
+
+  .messages-container {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0.5rem;
+    background-color: #f9f9f9;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    min-height: 0; /* Important for flex child to shrink */
+    max-width: 100%;
+  }
+
+  .messages-container::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  .messages-container::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+  }
+
+  .messages-container::-webkit-scrollbar-thumb {
+    background: #ccc;
+    border-radius: 4px;
+  }
+
+  .messages-container::-webkit-scrollbar-thumb:hover {
+    background: #bbb;
+  }
+
+  /* Responsive design */
+  @media (max-width: 768px) {
+    .feature-detail-container {
+      height: auto;
+      max-height: calc(100vh - 150px);
+    }
+    
+    .messages-section {
+      min-height: 250px;
+    }
+
+    .methods-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .feature-info {
+      max-height: 50vh;
+    }
   }
