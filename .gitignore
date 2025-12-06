@@ -6,3 +6,5 @@ node_modules
 # Test coverage files
 coverage.out
 coverage.html
+coverage-integration.html
+coverage-integration.out

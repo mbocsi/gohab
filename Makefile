@@ -1,4 +1,4 @@
-.PHONY: all server client1 client2 client3 test test-server test-client test-integration test-coverage clean
+.PHONY: all server client1 client2 client3 test test-server test-client test-integration test-coverage test-integration-coverage test-all clean
 
 all: server client1 client2 client3
 
@@ -24,12 +24,18 @@ test-client:
 	go test ./client/...
 
 test-integration:
-	go test -tags=integration ./...
+	go test -v -tags=integration ./...
 
 test-coverage:
-	go test -coverprofile=coverage.out ./...
+	go test -v -coverprofile=coverage.out ./...
 	go tool cover -html=coverage.out -o coverage.html
+
+test-integration-coverage:
+	go test -v -tags=integration -coverprofile=coverage-integration.out ./...
+	go tool cover -html=coverage-integration.out -o coverage-integration.html
+
+test-all: test test-integration
 
 clean:
 	rm -f ./bin/*
-	rm -f coverage.out coverage.html
+	rm -f coverage.out coverage.html coverage-integration.out coverage-integration.html
