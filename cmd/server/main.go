@@ -27,14 +27,23 @@ func main() {
 
 	// Create server with dependencies and optional logging config
 	gohabServer := server.NewGohabServer(registry, broker)
-	
+
 	// Example: Set custom logging configuration
 	// gohabServer.SetLogConfig(server.QuietLogConfig())     // Only errors
 	// gohabServer.SetLogConfig(server.SuppressedLogConfig()) // No logs at all
 	// gohabServer.SetLogConfig(server.DefaultLogConfig())   // Default debug level
-	
+
 	gohabServer.RegisterTransport(tcpServer)
 	gohabServer.RegisterTransport(wsServer)
+
+	// Create LoRa transport (using mock hardware for development)
+	// For real hardware, replace with your actual HardwareInterface implementation
+	loraConfig := server.DefaultSX1276Config() // 868MHz EU configuration
+	// mockHW := &MockHardwareInterface{}  // This would be in a test file
+	// mockLoraRadio, err := server.NewSX1276Radio(loraConfig, mockHW)
+	// For now, skip LoRa transport in main.go since mock is in test files
+	// Uncomment the LoRa transport setup when you have real hardware interface
+	_ = loraConfig // Prevent unused variable warning
 
 	// Create in-memory transport
 	inMemoryTransport := web.NewInMemoryTransport()
