@@ -48,9 +48,8 @@ func TestWSClient_Meta(t *testing.T) {
 	}
 }
 
-func TestWSClient_SendMessage(t *testing.T) {
-	// This test would require a real WebSocket connection
-	// For now, we'll test that the client handles nil connections properly
+func TestWSClient_SendMessage_NilConnection(t *testing.T) {
+	// Test with nil connection - should handle gracefully
 	var conn *websocket.Conn = nil
 	transport := NewWSTransport("localhost:8080")
 	client := NewWSClient(conn, transport)
@@ -64,13 +63,9 @@ func TestWSClient_SendMessage(t *testing.T) {
 		Payload: json.RawMessage(payloadBytes),
 	}
 	
-	// Since we don't have a real connection, this will panic
-	// We'll catch the panic and verify it's the expected one
-	defer func() {
-		if r := recover(); r == nil {
-			t.Error("Expected panic when sending to nil connection")
-		}
-	}()
-	
-	client.Send(testMsg)
+	// Should return an error rather than panic
+	err := client.Send(testMsg)
+	if err == nil {
+		t.Error("Expected error when sending to nil connection")
+	}
 }

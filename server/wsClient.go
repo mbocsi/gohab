@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	"fmt"
 	"log/slog"
 
 	"github.com/gorilla/websocket"
@@ -21,6 +22,10 @@ func NewWSClient(conn *websocket.Conn, t Transport) *WSClient {
 }
 
 func (c *WSClient) Send(msg proto.Message) error {
+	if c.conn == nil {
+		return fmt.Errorf("websocket connection is nil")
+	}
+	
 	jsonData, err := json.Marshal(msg)
 	if err != nil {
 		return err

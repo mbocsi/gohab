@@ -2,3 +2,7 @@ bin
 *.env*
 tmp
 node_modules
+
+# Test coverage files
+coverage.out
+coverage.html
