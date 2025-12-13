@@ -5,12 +5,13 @@ import (
 )
 
 type Message struct {
-	Type      string          `json:"type"`                // "command", "status", "info", "query", "response"
-	Topic     string          `json:"topic,omitempty"`     // logical routing (e.g., "light/123/state")
-	Sender    string          `json:"sender,omitempty"`    // sender ID (e.g., device ID or server)
-	Recipient string          `json:"recipient,omitempty"` // optional (for direct device communication)
-	Payload   json.RawMessage `json:"payload"`             // raw JSON; allows flexible schema per message type
-	Timestamp int64           `json:"timestamp"`           // UNIX timestamp in seconds
+	Type          string          `json:"type"`                      // "command", "status", "info", "query", "response"
+	Topic         string          `json:"topic,omitempty"`           // logical routing (e.g., "light/123/state")
+	Sender        string          `json:"sender,omitempty"`          // sender ID (e.g., device ID or server)
+	Recipient     string          `json:"recipient,omitempty"`       // optional (for direct device communication)
+	CorrelationID string          `json:"correlation_id,omitempty"`  // unique ID for query-response correlation
+	Payload       json.RawMessage `json:"payload"`                   // raw JSON; allows flexible schema per message type
+	Timestamp     int64           `json:"timestamp"`                 // UNIX timestamp in seconds
 }
 
 type IdentifyPayload struct {

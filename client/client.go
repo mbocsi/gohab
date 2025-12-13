@@ -1,6 +1,8 @@
 package client
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -183,7 +185,7 @@ func (c *Client) readLoop() error {
 				slog.Warn("An error occured when marshalling response", "topic", msg.Topic, "error", err.Error())
 				continue
 			}
-			responseMsg := proto.Message{Type: "response", Topic: msg.Topic, Recipient: msg.Sender, Payload: responsePayload, Timestamp: time.Now().Unix()}
+			responseMsg := proto.Message{Type: "response", Topic: msg.Topic, Recipient: msg.Sender, CorrelationID: msg.CorrelationID, Payload: responsePayload, Timestamp: time.Now().Unix()}
 			err = c.transport.Send(responseMsg)
 			if err != nil {
 				slog.Warn("An error occured when sending response", "response", responseMsg, "error", err.Error())
@@ -203,11 +205,11 @@ func (c *Client) readLoop() error {
 
 		case "response":
 			c.resMu.Lock()
-			ch, ok := c.resChans[msg.Topic]
+			ch, ok := c.resChans[msg.CorrelationID]
 			if ok {
 				ch <- msg
 				close(ch)
-				delete(c.resChans, msg.Topic)
+				delete(c.resChans, msg.CorrelationID)
 			}
 			c.resMu.Unlock()
 
@@ -224,18 +226,32 @@ func (c *Client) SendQuery(topic string, payload any) (proto.Message, error) {
 		return proto.Message{}, err
 	}
 
-	msg := proto.Message{
-		Type:    "query",
-		Topic:   topic,
-		Payload: rawPayload,
+	// Generate unique correlation ID for this query
+	correlationID, err := generateCorrelationID()
+	if err != nil {
+		return proto.Message{}, fmt.Errorf("failed to generate correlation ID: %w", err)
 	}
 
-	// Set up a channel to receive the response
+	msg := proto.Message{
+		Type:          "query",
+		Topic:         topic,
+		CorrelationID: correlationID,
+		Payload:       rawPayload,
+	}
+
+	// Set up a channel to receive the response using correlation ID
 	respChan := make(chan proto.Message, 1)
 
 	c.resMu.Lock()
-	c.resChans[topic] = respChan
+	c.resChans[correlationID] = respChan
 	c.resMu.Unlock()
+
+	// Ensure cleanup happens regardless of how function exits
+	defer func() {
+		c.resMu.Lock()
+		delete(c.resChans, correlationID)
+		c.resMu.Unlock()
+	}()
 
 	err = c.transport.Send(msg)
 	if err != nil {
@@ -459,4 +475,13 @@ func setupLogger() {
 		Level: slog.LevelDebug,
 	})
 	slog.SetDefault(slog.New(handler))
+}
+
+func generateCorrelationID() (string, error) {
+	bytes := make([]byte, 8) // 16-character hex string
+	_, err := rand.Read(bytes)
+	if err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(bytes), nil
 }
