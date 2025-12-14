@@ -68,100 +68,8 @@ func TestSmartLightingAutomation(t *testing.T) {
 		t.Fatalf("Failed to add brightness sensor feature: %v", err)
 	}
 
-	// Create LED controller
-	ledController := client.NewClient("led-controller-01", client.NewTCPTransport())
-	
-	var ledBrightness float64
-	var ledOn bool
-	var ledColor string
-	var ledMu sync.Mutex
-
-	err = ledController.AddFeature(proto.Feature{
-		Name: "led-strip",
-		Methods: proto.FeatureMethods{
-			Command: proto.Method{
-				InputSchema: map[string]proto.DataType{
-					"brightness": {Type: "number", Range: []float64{0, 100}},
-					"color":      {Type: "enum", Enum: []string{"warm", "cool", "red", "green", "blue"}},
-					"on":         {Type: "bool"},
-				},
-			},
-			Status: proto.Method{
-				OutputSchema: map[string]proto.DataType{
-					"brightness": {Type: "number"},
-					"color":      {Type: "string"},
-					"on":         {Type: "bool"},
-					"power":      {Type: "number", Unit: "watts"},
-				},
-			},
-			Query: proto.Method{
-				OutputSchema: map[string]proto.DataType{
-					"brightness": {Type: "number"},
-					"color":      {Type: "string"},
-					"on":         {Type: "bool"},
-				},
-			},
-		},
-	})
-	if err != nil {
-		t.Fatalf("Failed to add LED controller feature: %v", err)
-	}
-
-	// Register LED command handler
-	err = ledController.RegisterCommandHandler("led-strip", func(msg proto.Message) error {
-		ledMu.Lock()
-		defer ledMu.Unlock()
-
-		var cmd map[string]interface{}
-		if err := json.Unmarshal(msg.Payload, &cmd); err != nil {
-			return err
-		}
-
-		if brightness, ok := cmd["brightness"].(float64); ok {
-			ledBrightness = brightness
-		}
-		if color, ok := cmd["color"].(string); ok {
-			ledColor = color
-		}
-		if on, ok := cmd["on"].(bool); ok {
-			ledOn = on
-		}
-
-		// Publish status update
-		statusFn, err := ledController.GetStatusFunction("led-strip")
-		if err == nil {
-			power := 0.0
-			if ledOn {
-				power = ledBrightness * 0.5 // Simulate power consumption
-			}
-			statusFn(map[string]interface{}{
-				"brightness": ledBrightness,
-				"color":      ledColor,
-				"on":         ledOn,
-				"power":      power,
-			})
-		}
-
-		return nil
-	})
-	if err != nil {
-		t.Fatalf("Failed to register LED command handler: %v", err)
-	}
-
-	// Register LED query handler
-	err = ledController.RegisterQueryHandler("led-strip", func(msg proto.Message) (any, error) {
-		ledMu.Lock()
-		defer ledMu.Unlock()
-
-		return map[string]interface{}{
-			"brightness": ledBrightness,
-			"color":      ledColor,
-			"on":         ledOn,
-		}, nil
-	})
-	if err != nil {
-		t.Fatalf("Failed to register LED query handler: %v", err)
-	}
+	// Create LED controller using StatefulLEDClient
+	ledController := NewStatefulLEDClient("led-controller-01", "led-strip")
 
 	// Create central controller
 	centralController := client.NewClient("central-controller", client.NewTCPTransport())
@@ -245,7 +153,7 @@ func TestSmartLightingAutomation(t *testing.T) {
 	}
 
 	// Start all devices
-	devices := []*client.Client{motionDetector, brightnessSensor, ledController, centralController}
+	devices := []*client.Client{motionDetector, brightnessSensor, centralController}
 	for i, device := range devices {
 		go func(idx int, dev *client.Client) {
 			if err := dev.Start(serverAddr); err != nil {
@@ -253,6 +161,13 @@ func TestSmartLightingAutomation(t *testing.T) {
 			}
 		}(i, device)
 	}
+	
+	// Start LED controller separately
+	go func() {
+		if err := ledController.Start(serverAddr); err != nil {
+			t.Errorf("LED controller failed: %v", err)
+		}
+	}()
 
 	// Wait for all connections
 	time.Sleep(2 * time.Second)
@@ -297,18 +212,21 @@ func TestSmartLightingAutomation(t *testing.T) {
 		time.Sleep(1 * time.Second)
 
 		// Step 4: Verify LED response
-		ledMu.Lock()
-		expectedBrightness := 100.0 - (30.0 / 10.0) // Should be 97%
-		if ledBrightness != expectedBrightness {
-			t.Errorf("Expected LED brightness %f, got %f", expectedBrightness, ledBrightness)
+		if !ledController.WaitForStateChange(2 * time.Second) {
+			t.Fatal("LED state did not change within timeout")
 		}
-		if !ledOn {
+
+		brightness, isOn, color := ledController.GetState()
+		expectedBrightness := int(100.0 - (30.0 / 10.0)) // Should be 97%
+		if brightness != expectedBrightness {
+			t.Errorf("Expected LED brightness %d, got %d", expectedBrightness, brightness)
+		}
+		if !isOn {
 			t.Error("LED should be on after motion detection")
 		}
-		if ledColor != "warm" {
-			t.Errorf("Expected warm color in low light, got %s", ledColor)
+		if color != "warm" {
+			t.Errorf("Expected warm color in low light, got %s", color)
 		}
-		ledMu.Unlock()
 
 		// Step 5: Query LED state to confirm
 		response, err := centralController.SendQuery("led-strip", map[string]interface{}{})
@@ -339,11 +257,14 @@ func TestSmartLightingAutomation(t *testing.T) {
 		time.Sleep(1 * time.Second)
 
 		// Verify LED dimmed
-		ledMu.Lock()
-		if ledBrightness != 10.0 {
-			t.Errorf("Expected dimmed brightness 10.0, got %f", ledBrightness)
+		if !ledController.WaitForStateChange(2 * time.Second) {
+			t.Fatal("LED state did not change for dimming")
 		}
-		ledMu.Unlock()
+		
+		brightness, _, _ = ledController.GetState()
+		if brightness != 10 {
+			t.Errorf("Expected dimmed brightness 10, got %d", brightness)
+		}
 	})
 
 	// Test bright ambient light scenario
@@ -377,15 +298,18 @@ func TestSmartLightingAutomation(t *testing.T) {
 		time.Sleep(1 * time.Second)
 
 		// Verify LED adjusted for bright conditions
-		ledMu.Lock()
-		expectedBrightness := 100.0 - (200.0 / 10.0) // Should be 80%
-		if ledBrightness != expectedBrightness {
-			t.Errorf("Expected LED brightness %f in bright conditions, got %f", expectedBrightness, ledBrightness)
+		if !ledController.WaitForStateChange(2 * time.Second) {
+			t.Fatal("LED state did not change for bright conditions")
 		}
-		if ledColor != "cool" {
-			t.Errorf("Expected cool color in bright light, got %s", ledColor)
+		
+		brightness, _, color := ledController.GetState()
+		expectedBrightness := int(100.0 - (200.0 / 10.0)) // Should be 80%
+		if brightness != expectedBrightness {
+			t.Errorf("Expected LED brightness %d in bright conditions, got %d", expectedBrightness, brightness)
 		}
-		ledMu.Unlock()
+		if color != "cool" {
+			t.Errorf("Expected cool color in bright light, got %s", color)
+		}
 	})
 
 	// Test automation timing (should complete within 2 seconds)
@@ -394,12 +318,6 @@ func TestSmartLightingAutomation(t *testing.T) {
 		
 		startTime := time.Now()
 		
-		// Reset LED state
-		ledMu.Lock()
-		ledOn = false
-		ledBrightness = 0
-		ledMu.Unlock()
-
 		// Trigger motion
 		err = motionDataFn(map[string]interface{}{
 			"motion":     true,
@@ -411,26 +329,14 @@ func TestSmartLightingAutomation(t *testing.T) {
 			t.Fatalf("Failed to publish motion for timing test: %v", err)
 		}
 
-		// Wait for LED to respond
-		for {
-			ledMu.Lock()
-			isOn := ledOn
-			ledMu.Unlock()
-
-			if isOn {
-				elapsed := time.Since(startTime)
-				if elapsed > 2*time.Second {
-					t.Errorf("Automation took too long: %v", elapsed)
-				}
-				break
+		// Wait for LED to respond using state change notification
+		if !ledController.WaitForStateChange(2 * time.Second) {
+			t.Error("LED never responded within timeout")
+		} else {
+			elapsed := time.Since(startTime)
+			if elapsed > 2*time.Second {
+				t.Errorf("Automation took too long: %v", elapsed)
 			}
-
-			if time.Since(startTime) > 3*time.Second {
-				t.Error("LED never turned on within timeout")
-				break
-			}
-
-			time.Sleep(50 * time.Millisecond)
 		}
 	})
 }
@@ -455,99 +361,13 @@ func TestHVACTemperatureControl(t *testing.T) {
 	serverAddr := fmt.Sprintf("localhost:%d", tcpPort)
 
 	// Create temperature sensor
-	tempSensor := client.NewClient("room-temp-sensor", client.NewTCPTransport())
-	err := tempSensor.AddFeature(proto.Feature{
-		Name: "room-temperature",
-		Methods: proto.FeatureMethods{
-			Data: proto.Method{
-				OutputSchema: map[string]proto.DataType{
-					"temperature": {Type: "number", Unit: "Celsius"},
-					"humidity":    {Type: "number", Unit: "percent"},
-					"room":        {Type: "string"},
-					"timestamp":   {Type: "string"},
-				},
-			},
-		},
-	})
-	if err != nil {
-		t.Fatalf("Failed to add temperature sensor feature: %v", err)
-	}
+	tempSensor := NewStatefulTemperatureSensorWithFeature("room-temp-sensor", "room-temperature")
 
-	// Create thermostat
-	thermostat := client.NewClient("smart-thermostat", client.NewTCPTransport())
-	
-	var thermostatTarget float64 = 22.0
-	var thermostatMode string = "auto"
-	var thermostatMu sync.Mutex
-
-	err = thermostat.AddFeature(proto.Feature{
-		Name: "hvac-control",
-		Methods: proto.FeatureMethods{
-			Command: proto.Method{
-				InputSchema: map[string]proto.DataType{
-					"target_temp": {Type: "number", Range: []float64{15, 30}, Unit: "Celsius"},
-					"mode":        {Type: "enum", Enum: []string{"heat", "cool", "auto", "off"}},
-				},
-			},
-			Status: proto.Method{
-				OutputSchema: map[string]proto.DataType{
-					"target_temp":  {Type: "number", Unit: "Celsius"},
-					"current_temp": {Type: "number", Unit: "Celsius"},
-					"mode":         {Type: "string"},
-					"status":       {Type: "enum", Enum: []string{"heating", "cooling", "idle", "off"}},
-				},
-			},
-			Query: proto.Method{
-				OutputSchema: map[string]proto.DataType{
-					"target_temp":  {Type: "number", Unit: "Celsius"},
-					"current_temp": {Type: "number", Unit: "Celsius"},
-					"mode":         {Type: "string"},
-				},
-			},
-		},
-	})
-	if err != nil {
-		t.Fatalf("Failed to add thermostat feature: %v", err)
-	}
-
-	// Register thermostat handlers
-	err = thermostat.RegisterCommandHandler("hvac-control", func(msg proto.Message) error {
-		thermostatMu.Lock()
-		defer thermostatMu.Unlock()
-
-		var cmd map[string]interface{}
-		if err := json.Unmarshal(msg.Payload, &cmd); err != nil {
-			return err
-		}
-
-		if target, ok := cmd["target_temp"].(float64); ok {
-			thermostatTarget = target
-		}
-		if mode, ok := cmd["mode"].(string); ok {
-			thermostatMode = mode
-		}
-
-		return nil
-	})
-	if err != nil {
-		t.Fatalf("Failed to register thermostat command handler: %v", err)
-	}
-
-	err = thermostat.RegisterQueryHandler("hvac-control", func(msg proto.Message) (any, error) {
-		thermostatMu.Lock()
-		defer thermostatMu.Unlock()
-
-		return map[string]interface{}{
-			"target_temp":  thermostatTarget,
-			"current_temp": 20.0, // Simulated current temp
-			"mode":         thermostatMode,
-		}, nil
-	})
-	if err != nil {
-		t.Fatalf("Failed to register thermostat query handler: %v", err)
-	}
+	// Create thermostat using StatefulThermostat
+	thermostat := NewStatefulThermostat("smart-thermostat")
 
 	// Create HVAC controller
+	var err error
 	hvacController := client.NewClient("hvac-unit", client.NewTCPTransport())
 	
 	var hvacStatus string = "idle"
@@ -638,10 +458,9 @@ func TestHVACTemperatureControl(t *testing.T) {
 
 		// Implement climate control logic
 		if temperature, ok := tempData["temperature"].(float64); ok {
-			thermostatMu.Lock()
-			target := thermostatTarget
-			mode := thermostatMode
-			thermostatMu.Unlock()
+			target, _, mode, _ := thermostat.GetState()
+			// Update thermostat with current temperature
+			thermostat.SetCurrentTemperature(temperature)
 
 			if mode == "auto" {
 				tempDiff := temperature - target
@@ -675,7 +494,7 @@ func TestHVACTemperatureControl(t *testing.T) {
 	}
 
 	// Start all devices
-	devices := []*client.Client{tempSensor, thermostat, hvacController, climateController}
+	devices := []*client.Client{hvacController, climateController}
 	for i, device := range devices {
 		go func(idx int, dev *client.Client) {
 			if err := dev.Start(serverAddr); err != nil {
@@ -683,6 +502,19 @@ func TestHVACTemperatureControl(t *testing.T) {
 			}
 		}(i, device)
 	}
+	
+	// Start stateful devices separately
+	go func() {
+		if err := tempSensor.Start(serverAddr); err != nil {
+			t.Errorf("Temperature sensor failed: %v", err)
+		}
+	}()
+	
+	go func() {
+		if err := thermostat.Start(serverAddr); err != nil {
+			t.Errorf("Thermostat failed: %v", err)
+		}
+	}()
 
 	// Wait for all connections
 	time.Sleep(2 * time.Second)
@@ -1029,6 +861,606 @@ func TestMultiZoneHomeAutomation(t *testing.T) {
 			subs := broker.Subs(fmt.Sprintf("%s-occupancy", zone))
 			if len(subs) != 1 {
 				t.Errorf("Expected 1 subscriber for %s occupancy, got %d", zone, len(subs))
+			}
+		}
+	})
+}
+
+// TestAdvancedLEDControl tests comprehensive LED brightness control workflow
+func TestAdvancedLEDControl(t *testing.T) {
+	// Start server
+	broker := server.NewBroker()
+	registry := server.NewDeviceRegistry()
+	gohabServer := server.NewGohabServerWithLogging(registry, broker, server.QuietLogConfig())
+
+	tcpPort := getRandomPort(t)
+	tcpTransport := server.NewTCPTransport(fmt.Sprintf("127.0.0.1:%d", tcpPort))
+	gohabServer.RegisterTransport(tcpTransport)
+
+	go func() {
+		if err := gohabServer.Start(); err != nil {
+			t.Errorf("Server failed to start: %v", err)
+		}
+	}()
+	time.Sleep(100 * time.Millisecond)
+
+	serverAddr := fmt.Sprintf("localhost:%d", tcpPort)
+
+	// Create LED device with advanced capabilities
+	ledDevice := NewStatefulLEDClient("living-room-led", "living-room-led")
+
+	// Create controller client to send commands
+	controller := client.NewClient("controller", client.NewTCPTransport())
+
+	// Start both clients
+	go func() {
+		if err := ledDevice.Start(serverAddr); err != nil {
+			t.Errorf("LED device failed: %v", err)
+		}
+	}()
+
+	go func() {
+		if err := controller.Start(serverAddr); err != nil {
+			t.Errorf("Controller failed: %v", err)
+		}
+	}()
+
+	// Wait for clients to connect
+	time.Sleep(500 * time.Millisecond)
+
+	// Test 1: Turn on LED and set brightness
+	t.Run("TurnOnAndSetBrightness", func(t *testing.T) {
+		// Verify initial state
+		brightness, isOn, _ := ledDevice.GetState()
+		if brightness != 0 || isOn != false {
+			t.Errorf("Expected initial state: brightness=0, on=false, got brightness=%d, on=%t", brightness, isOn)
+		}
+
+		// Send command to turn on and set brightness to 75
+		err := controller.SendCommand("living-room-led", map[string]interface{}{
+			"brightness": 75,
+			"on":         true,
+		})
+		if err != nil {
+			t.Fatalf("Failed to send command: %v", err)
+		}
+
+		// Wait for state change
+		if !ledDevice.WaitForStateChange(2 * time.Second) {
+			t.Fatal("LED state did not change within timeout")
+		}
+
+		// Verify new state
+		brightness, isOn, _ = ledDevice.GetState()
+		if brightness != 75 || isOn != true {
+			t.Errorf("Expected state: brightness=75, on=true, got brightness=%d, on=%t", brightness, isOn)
+		}
+	})
+
+	// Test 2: Brightness adjustment
+	t.Run("BrightnessAdjustment", func(t *testing.T) {
+		// Adjust brightness to 25
+		err := controller.SendCommand("living-room-led", map[string]interface{}{
+			"brightness": 25,
+		})
+		if err != nil {
+			t.Fatalf("Failed to adjust brightness: %v", err)
+		}
+
+		// Wait for state change
+		if !ledDevice.WaitForStateChange(2 * time.Second) {
+			t.Fatal("LED state did not change within timeout")
+		}
+
+		// Verify brightness changed but still on
+		brightness, isOn, _ := ledDevice.GetState()
+		if brightness != 25 || isOn != true {
+			t.Errorf("Expected state: brightness=25, on=true, got brightness=%d, on=%t", brightness, isOn)
+		}
+	})
+
+	// Test 3: Turn off LED
+	t.Run("TurnOffLED", func(t *testing.T) {
+		// Turn off LED
+		err := controller.SendCommand("living-room-led", map[string]interface{}{
+			"on": false,
+		})
+		if err != nil {
+			t.Fatalf("Failed to turn off LED: %v", err)
+		}
+
+		// Wait for state change
+		if !ledDevice.WaitForStateChange(2 * time.Second) {
+			t.Fatal("LED state did not change within timeout")
+		}
+
+		// Verify LED is off but brightness preserved
+		brightness, isOn, _ := ledDevice.GetState()
+		if brightness != 25 || isOn != false {
+			t.Errorf("Expected state: brightness=25, on=false, got brightness=%d, on=%t", brightness, isOn)
+		}
+	})
+
+	// Test 4: Query LED state
+	t.Run("QueryLEDState", func(t *testing.T) {
+		response, err := controller.SendQuery("living-room-led", map[string]interface{}{})
+		if err != nil {
+			t.Fatalf("Failed to query LED: %v", err)
+		}
+
+		var state map[string]interface{}
+		if err := json.Unmarshal(response.Payload, &state); err != nil {
+			t.Fatalf("Failed to unmarshal response: %v", err)
+		}
+
+		// Verify query response matches device state
+		brightness, isOn, color := ledDevice.GetState()
+		
+		if state["brightness"].(float64) != float64(brightness) {
+			t.Errorf("Query brightness mismatch: expected %d, got %f", brightness, state["brightness"])
+		}
+		if state["on"].(bool) != isOn {
+			t.Errorf("Query on state mismatch: expected %t, got %t", isOn, state["on"])
+		}
+		if state["color"].(string) != color {
+			t.Errorf("Query color mismatch: expected %s, got %s", color, state["color"])
+		}
+	})
+}
+
+// TestAdvancedThermostatCoordination tests comprehensive thermostat control workflow
+func TestAdvancedThermostatCoordination(t *testing.T) {
+	// Start server
+	broker := server.NewBroker()
+	registry := server.NewDeviceRegistry()
+	gohabServer := server.NewGohabServerWithLogging(registry, broker, server.QuietLogConfig())
+
+	tcpPort := getRandomPort(t)
+	tcpTransport := server.NewTCPTransport(fmt.Sprintf("127.0.0.1:%d", tcpPort))
+	gohabServer.RegisterTransport(tcpTransport)
+
+	go func() {
+		if err := gohabServer.Start(); err != nil {
+			t.Errorf("Server failed to start: %v", err)
+		}
+	}()
+	time.Sleep(100 * time.Millisecond)
+
+	serverAddr := fmt.Sprintf("localhost:%d", tcpPort)
+
+	// Create thermostat device
+	thermostat := NewStatefulThermostat("main-thermostat")
+
+	// Create temperature sensor
+	tempSensor := NewStatefulTemperatureSensor("room-temp-sensor")
+
+	// Create controller client
+	controller := client.NewClient("home-controller", client.NewTCPTransport())
+
+	// Start all clients
+	go func() {
+		if err := thermostat.Start(serverAddr); err != nil {
+			t.Errorf("Thermostat failed: %v", err)
+		}
+	}()
+
+	go func() {
+		if err := tempSensor.Start(serverAddr); err != nil {
+			t.Errorf("Temperature sensor failed: %v", err)
+		}
+	}()
+
+	go func() {
+		if err := controller.Start(serverAddr); err != nil {
+			t.Errorf("Controller failed: %v", err)
+		}
+	}()
+
+	// Wait for connections
+	time.Sleep(500 * time.Millisecond)
+
+	// Test 1: Set thermostat to heating mode
+	t.Run("SetHeatingMode", func(t *testing.T) {
+		// Verify initial state
+		targetTemp, currentTemp, mode, _ := thermostat.GetState()
+		if targetTemp != 22.0 || currentTemp != 20.0 || mode != "auto" {
+			t.Errorf("Expected initial state: target=22.0, current=20.0, mode=auto, got target=%f, current=%f, mode=%s", targetTemp, currentTemp, mode)
+		}
+
+		// Set thermostat to heating mode with target temperature
+		err := controller.SendCommand("hvac-control", map[string]interface{}{
+			"target_temp": 24.0,
+			"mode":        "heat",
+		})
+		if err != nil {
+			t.Fatalf("Failed to send thermostat command: %v", err)
+		}
+
+		// Wait for state change
+		if !thermostat.WaitForStateChange(2 * time.Second) {
+			t.Fatal("Thermostat state did not change within timeout")
+		}
+
+		// Verify new state
+		targetTemp, _, mode, _ = thermostat.GetState()
+		if targetTemp != 24.0 || mode != "heat" {
+			t.Errorf("Expected state: target=24.0, mode=heat, got target=%f, mode=%s", targetTemp, mode)
+		}
+	})
+
+	// Test 2: Query thermostat state
+	t.Run("QueryThermostatState", func(t *testing.T) {
+		response, err := controller.SendQuery("hvac-control", map[string]interface{}{})
+		if err != nil {
+			t.Fatalf("Failed to query thermostat: %v", err)
+		}
+
+		var state map[string]interface{}
+		if err := json.Unmarshal(response.Payload, &state); err != nil {
+			t.Fatalf("Failed to unmarshal response: %v", err)
+		}
+
+		targetTemp := state["target_temp"].(float64)
+		mode := state["mode"].(string)
+
+		if targetTemp != 24.0 {
+			t.Errorf("Expected target_temp 24.0, got %f", targetTemp)
+		}
+		if mode != "heat" {
+			t.Errorf("Expected mode 'heat', got '%s'", mode)
+		}
+	})
+
+	// Test 3: Simulate temperature change and verify thermostat response
+	t.Run("TemperatureChangeResponse", func(t *testing.T) {
+		// Simulate temperature rising due to heating
+		tempSensor.SetTemperature(23.5)
+		thermostat.SetCurrentTemperature(23.5)
+
+		// Verify thermostat updated its current temperature
+		_, currentTemp, _, _ := thermostat.GetState()
+		if currentTemp != 23.5 {
+			t.Errorf("Expected current temperature 23.5, got %f", currentTemp)
+		}
+
+		// Temperature sensor should report new reading
+		sensorTemp := tempSensor.GetTemperature()
+		if sensorTemp != 23.5 {
+			t.Errorf("Expected sensor temperature 23.5, got %f", sensorTemp)
+		}
+
+		// Publish temperature data
+		err := tempSensor.PublishReading()
+		if err != nil {
+			t.Fatalf("Failed to publish temperature reading: %v", err)
+		}
+	})
+
+	// Test 4: Query temperature sensor
+	t.Run("QueryTemperatureSensor", func(t *testing.T) {
+		response, err := controller.SendQuery("temperature", map[string]interface{}{})
+		if err != nil {
+			t.Fatalf("Failed to query temperature sensor: %v", err)
+		}
+
+		var reading map[string]interface{}
+		if err := json.Unmarshal(response.Payload, &reading); err != nil {
+			t.Fatalf("Failed to unmarshal response: %v", err)
+		}
+
+		temp := reading["temperature"].(float64)
+		unit := reading["unit"].(string)
+
+		if temp != 23.5 {
+			t.Errorf("Expected temperature 23.5, got %f", temp)
+		}
+		if unit != "celsius" {
+			t.Errorf("Expected unit 'celsius', got '%s'", unit)
+		}
+	})
+
+	// Test 5: Switch to cooling mode when target reached
+	t.Run("SwitchToCoolingMode", func(t *testing.T) {
+		// Temperature reached target, now switch to cooling
+		err := controller.SendCommand("hvac-control", map[string]interface{}{
+			"target_temp": 22.0,
+			"mode":        "cool",
+		})
+		if err != nil {
+			t.Fatalf("Failed to send cooling command: %v", err)
+		}
+
+		if !thermostat.WaitForStateChange(2 * time.Second) {
+			t.Fatal("Thermostat state did not change within timeout")
+		}
+
+		targetTemp, _, mode, _ := thermostat.GetState()
+		if targetTemp != 22.0 || mode != "cool" {
+			t.Errorf("Expected state: target=22.0, mode=cool, got target=%f, mode=%s", targetTemp, mode)
+		}
+	})
+}
+
+// TestPubSubDeviceCoordination tests cross-device pub/sub automation workflows
+func TestPubSubDeviceCoordination(t *testing.T) {
+	// Start server
+	broker := server.NewBroker()
+	registry := server.NewDeviceRegistry()
+	gohabServer := server.NewGohabServerWithLogging(registry, broker, server.QuietLogConfig())
+
+	tcpPort := getRandomPort(t)
+	tcpTransport := server.NewTCPTransport(fmt.Sprintf("127.0.0.1:%d", tcpPort))
+	gohabServer.RegisterTransport(tcpTransport)
+
+	go func() {
+		if err := gohabServer.Start(); err != nil {
+			t.Errorf("Server failed to start: %v", err)
+		}
+	}()
+	time.Sleep(100 * time.Millisecond)
+
+	serverAddr := fmt.Sprintf("localhost:%d", tcpPort)
+
+	// Create temperature sensor as publisher
+	tempSensor := NewStatefulTemperatureSensor("outdoor-sensor")
+
+	// Create LED device that subscribes to temperature changes
+	ledDevice := NewStatefulLEDClient("temp-indicator-led", "temp-indicator-led")
+
+	// Track received temperature messages
+	var receivedTemperatures []float64
+	var temperatureMutex sync.Mutex
+
+	// Set up LED to subscribe to temperature updates
+	err := ledDevice.GetClient().Subscribe("temperature", func(msg proto.Message) error {
+		var tempData map[string]interface{}
+		if err := json.Unmarshal(msg.Payload, &tempData); err != nil {
+			return err
+		}
+
+		if temp, ok := tempData["temperature"].(float64); ok {
+			temperatureMutex.Lock()
+			receivedTemperatures = append(receivedTemperatures, temp)
+			temperatureMutex.Unlock()
+
+			// Adjust LED brightness based on temperature
+			// Temperature range 0-30°C maps to brightness 0-100
+			brightness := int((temp / 30.0) * 100)
+			if brightness > 100 {
+				brightness = 100
+			}
+			if brightness < 0 {
+				brightness = 0
+			}
+
+			// Update LED based on temperature
+			payload, _ := json.Marshal(map[string]interface{}{
+				"brightness": brightness,
+				"on":         temp > 0, // Turn on if above freezing
+			})
+			return ledDevice.HandleCommand(proto.Message{
+				Payload: payload,
+			})
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("Failed to set up temperature subscription: %v", err)
+	}
+
+	// Start both devices
+	go func() {
+		if err := tempSensor.Start(serverAddr); err != nil {
+			t.Errorf("Temperature sensor failed: %v", err)
+		}
+	}()
+
+	go func() {
+		if err := ledDevice.Start(serverAddr); err != nil {
+			t.Errorf("LED device failed: %v", err)
+		}
+	}()
+
+	// Wait for connections
+	time.Sleep(500 * time.Millisecond)
+
+	// Test temperature-LED coordination
+	testTemperatures := []float64{15.0, 25.0, 30.0, 10.0}
+
+	for i, temp := range testTemperatures {
+		t.Run(fmt.Sprintf("TemperatureUpdate_%d", i+1), func(t *testing.T) {
+			// Update temperature
+			tempSensor.SetTemperature(temp)
+
+			// Publish temperature reading
+			err := tempSensor.PublishReading()
+			if err != nil {
+				t.Fatalf("Failed to publish temperature: %v", err)
+			}
+
+			// Wait for LED to receive update and change state
+			if !ledDevice.WaitForStateChange(2 * time.Second) {
+				t.Fatal("LED did not respond to temperature change")
+			}
+
+			// Verify LED state matches temperature
+			brightness, isOn, _ := ledDevice.GetState()
+			expectedBrightness := int((temp / 30.0) * 100)
+			if expectedBrightness > 100 {
+				expectedBrightness = 100
+			}
+
+			if brightness != expectedBrightness {
+				t.Errorf("Expected LED brightness %d for temp %f, got %d", expectedBrightness, temp, brightness)
+			}
+
+			expectedOn := temp > 0
+			if isOn != expectedOn {
+				t.Errorf("Expected LED on=%t for temp %f, got %t", expectedOn, temp, isOn)
+			}
+		})
+	}
+
+	// Verify all temperature messages were received
+	temperatureMutex.Lock()
+	if len(receivedTemperatures) != len(testTemperatures) {
+		t.Errorf("Expected to receive %d temperature updates, got %d", len(testTemperatures), len(receivedTemperatures))
+	}
+	temperatureMutex.Unlock()
+}
+
+// TestEnhancedMultiDeviceCoordination tests comprehensive multi-device orchestration scenarios  
+func TestEnhancedMultiDeviceCoordination(t *testing.T) {
+	// Start server
+	broker := server.NewBroker()
+	registry := server.NewDeviceRegistry()
+	gohabServer := server.NewGohabServerWithLogging(registry, broker, server.QuietLogConfig())
+
+	tcpPort := getRandomPort(t)
+	tcpTransport := server.NewTCPTransport(fmt.Sprintf("127.0.0.1:%d", tcpPort))
+	gohabServer.RegisterTransport(tcpTransport)
+
+	go func() {
+		if err := gohabServer.Start(); err != nil {
+			t.Errorf("Server failed to start: %v", err)
+		}
+	}()
+	time.Sleep(100 * time.Millisecond)
+
+	serverAddr := fmt.Sprintf("localhost:%d", tcpPort)
+
+	// Create multiple devices
+	led1 := NewStatefulLEDClient("bedroom-led", "bedroom-led")
+	led2 := NewStatefulLEDClient("kitchen-led", "kitchen-led")
+	thermostat := NewStatefulThermostat("main-thermostat")
+	tempSensor := NewStatefulTemperatureSensor("living-room-sensor")
+	controller := client.NewClient("central-controller", client.NewTCPTransport())
+
+	// Start all devices
+	go func() {
+		if err := led1.Start(serverAddr); err != nil {
+			t.Errorf("LED1 failed to start: %v", err)
+		}
+	}()
+
+	go func() {
+		if err := led2.Start(serverAddr); err != nil {
+			t.Errorf("LED2 failed to start: %v", err)
+		}
+	}()
+
+	go func() {
+		if err := thermostat.Start(serverAddr); err != nil {
+			t.Errorf("Thermostat failed to start: %v", err)
+		}
+	}()
+
+	go func() {
+		if err := tempSensor.Start(serverAddr); err != nil {
+			t.Errorf("Temperature sensor failed to start: %v", err)
+		}
+	}()
+
+	go func() {
+		if err := controller.Start(serverAddr); err != nil {
+			t.Errorf("Controller failed to start: %v", err)
+		}
+	}()
+
+	// Wait for all connections
+	time.Sleep(1 * time.Second)
+
+	// Verify all devices are registered
+	registeredDevices := registry.List()
+	if len(registeredDevices) != 5 {
+		t.Fatalf("Expected 5 devices registered, got %d", len(registeredDevices))
+	}
+
+	// Test coordinated control
+	t.Run("CoordinatedLEDControl", func(t *testing.T) {
+		// Turn on both LEDs with different brightness
+		err := controller.SendCommand("bedroom-led", map[string]interface{}{
+			"brightness": 50,
+			"on":         true,
+		})
+		if err != nil {
+			t.Fatalf("Failed to send LED command: %v", err)
+		}
+		if !led1.WaitForStateChange(2 * time.Second) {
+			t.Error("LED1 did not update")
+		}
+
+		err = controller.SendCommand("kitchen-led", map[string]interface{}{
+			"brightness": 50,
+			"on":         true,
+		})
+
+		if err != nil {
+			t.Fatalf("Failed to send LED command: %v", err)
+		}
+
+		if !led2.WaitForStateChange(2 * time.Second) {
+			t.Error("LED2 did not update")
+		}
+
+		// Verify both LEDs have same state
+		brightness1, on1, _ := led1.GetState()
+		brightness2, on2, _ := led2.GetState()
+
+		if brightness1 != 50 || brightness2 != 50 {
+			t.Errorf("Expected brightness 50 for both LEDs, got %d and %d", brightness1, brightness2)
+		}
+		if !on1 || !on2 {
+			t.Errorf("Expected both LEDs to be on, got %t and %t", on1, on2)
+		}
+	})
+
+	// Test individual device queries
+	t.Run("IndividualDeviceQueries", func(t *testing.T) {
+		// Query each device type
+		devices := map[string]string{
+			"bedroom-led": "bedroom-led",
+			"kitchen-led": "kitchen-led",
+			"hvac-control":  "thermostat",
+			"temperature": "temperature sensor",
+		}
+
+		for topic, name := range devices {
+			response, err := controller.SendQuery(topic, map[string]interface{}{})
+			if err != nil {
+				t.Errorf("Failed to query %s: %v", name, err)
+				continue
+			}
+
+			var state map[string]interface{}
+			if err := json.Unmarshal(response.Payload, &state); err != nil {
+				t.Errorf("Failed to unmarshal %s response: %v", name, err)
+				continue
+			}
+
+			// Verify response contains expected fields based on device type
+			switch topic {
+			case "kitchen-led", "bedroom-led":
+				if _, ok := state["brightness"]; !ok {
+					t.Errorf("LED response missing brightness field")
+				}
+				if _, ok := state["on"]; !ok {
+					t.Errorf("LED response missing on field")
+				}
+			case "hvac-control":
+				if _, ok := state["target_temp"]; !ok {
+					t.Errorf("Thermostat response missing target_temp field")
+				}
+				if _, ok := state["mode"]; !ok {
+					t.Errorf("Thermostat response missing mode field")
+				}
+			case "temperature":
+				if _, ok := state["temperature"]; !ok {
+					t.Errorf("Temperature sensor response missing temperature field")
+				}
+				if _, ok := state["unit"]; !ok {
+					t.Errorf("Temperature sensor response missing unit field")
+				}
 			}
 		}
 	})
