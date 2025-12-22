@@ -166,6 +166,36 @@ func (s *GohabServer) start(ctx context.Context) error {
 func (s *GohabServer) RegisterDevice(client Client) error {
 	s.registery.Store(client)
 
+	// Register any pre-existing features in topicSources (e.g., for MCP/Web clients)
+	client.Meta().Mu.RLock()
+	features := client.Meta().Features
+	client.Meta().Mu.RUnlock()
+
+	if len(features) > 0 {
+		s.topicSourcesMu.Lock()
+		for mapKey, feature := range features {
+			// Ensure feature map key matches Feature.Name for consistency
+			if mapKey != feature.Name {
+				slog.Error("Feature map key does not match Feature.Name", "mapKey", mapKey, "featureName", feature.Name, "client", client.Meta().Id)
+				continue
+			}
+			
+			// Validate feature before registering
+			if err := feature.Validate(); err != nil {
+				slog.Error("Invalid pre-existing feature", "feature", feature.Name, "error", err, "client", client.Meta().Id)
+				continue
+			}
+			
+			if _, ok := s.topicSources[feature.Name]; ok {
+				slog.Error("Feature name/topic already exists in system: skipping source registration", "topic", feature.Name)
+				continue
+			}
+			s.topicSources[feature.Name] = client.Meta().Id
+			slog.Debug("Registered feature topic source", "topic", feature.Name, "client", client.Meta().Id)
+		}
+		s.topicSourcesMu.Unlock()
+	}
+
 	slog.Info("Registered client", "id", client.Meta().Id)
 	return nil
 }
@@ -232,6 +262,11 @@ func (s *GohabServer) handleIdentify(msg proto.Message) {
 
 	features := make(map[string]proto.Feature)
 	for _, feature := range idPayload.Features {
+		// Validate feature before registering
+		if err := feature.Validate(); err != nil {
+			slog.Error("Invalid feature in identify payload", "feature", feature.Name, "error", err, "client", id)
+			continue
+		}
 		features[feature.Name] = feature
 	}
 

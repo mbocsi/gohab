@@ -96,12 +96,12 @@ func (wt *InMemoryTransport) SetDescription(description string) {
 	wt.description = description
 }
 
-// RegisterClient registers a web client with the transport (Unique to this transport)
-func (wt *InMemoryTransport) RegisterClient(client *WebClient) error {
+// RegisterClient registers any client with the transport
+func (wt *InMemoryTransport) RegisterClient(client server.Client) error {
 	wt.cmu.Lock()
 	defer wt.cmu.Unlock()
 
-	client.DeviceMetadata.Transport = wt
+	client.Meta().Transport = wt
 
 	wt.clients[client.Meta().Id] = client
 

@@ -3,6 +3,7 @@ package main
 import (
 	"log/slog"
 
+	"github.com/mbocsi/gohab/mcp"
 	"github.com/mbocsi/gohab/server"
 	"github.com/mbocsi/gohab/services"
 	"github.com/mbocsi/gohab/web"
@@ -64,6 +65,13 @@ func main() {
 
 	go webClient.Start(":8080")
 	defer webClient.Shutdown()
+
+	// Create MCP client with service layer and transport
+	mcpClient := mcp.NewMCPClient(serviceManager.GetServices())
+	inMemoryTransport.RegisterClient(mcpClient)
+
+	go mcpClient.Start(":8890")
+	defer mcpClient.Shutdown()
 
 	if err := gohabServer.Start(); err != nil {
 		slog.Error("Error starting gohab server", "error", err.Error())
