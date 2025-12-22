@@ -39,6 +39,24 @@ func (c *Feature) Validate() error {
 		return errors.New("feature name is required")
 	}
 
+	// Validate feature name format for web routing compatibility
+	if strings.Contains(c.Name, "/") {
+		return fmt.Errorf("feature name %q cannot contain '/' characters (conflicts with web routing)", c.Name)
+	}
+	
+	// Additional invalid characters for URL safety
+	invalidChars := []string{" ", "?", "#", "&", "%"}
+	for _, char := range invalidChars {
+		if strings.Contains(c.Name, char) {
+			return fmt.Errorf("feature name %q cannot contain '%s' character", c.Name, char)
+		}
+	}
+	
+	// Length validation
+	if len(c.Name) > 64 {
+		return fmt.Errorf("feature name %q is too long (max 64 characters)", c.Name)
+	}
+
 	// Ensure at least one method is defined
 	if !c.Methods.Data.IsDefined() &&
 		!c.Methods.Status.IsDefined() &&
