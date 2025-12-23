@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -39,7 +40,7 @@ type WebClient struct {
 func NewWebClient(serviceContainer *services.ServiceContainer) *WebClient {
 	client := &WebClient{
 		services:       serviceContainer,
-		templates:      NewTemplates("templates/layout/*.html"),
+		templates:      NewTemplates(filepath.Join(getProjectRoot(), "templates/layout/*.html")),
 		sseConnections: make(map[string][]*SSEConnection),
 		DeviceMetadata: server.DeviceMetadata{
 			Id:       "web-ui",
@@ -236,7 +237,7 @@ func (w *WebClient) RenameDevice(deviceID, newName string) error {
 // Routes returns the HTTP routes for the web UI
 func (w *WebClient) Routes() http.Handler {
 	r := chi.NewRouter()
-	r.Handle("/assets/*", http.StripPrefix("/assets/", http.FileServer(http.Dir("./assets"))))
+	r.Handle("/assets/*", http.StripPrefix("/assets/", http.FileServer(http.Dir(filepath.Join(getProjectRoot(), "assets")))))
 	r.Get("/", w.HandleHome)
 	r.Get("/devices", w.HandleDevices)
 	r.Get("/devices/{id}", w.HandleDeviceDetail)

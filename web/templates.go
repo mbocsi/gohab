@@ -29,7 +29,7 @@ func NewTemplates(pattern string) *Templates {
 	pages := make(map[string]*PageTemplate)
 
 	// Dynamically discover page groups by reading directories
-	pagesDir := "templates/pages"
+	pagesDir := filepath.Join(getProjectRoot(), "templates", "pages")
 	entries, err := os.ReadDir(pagesDir)
 	if err != nil {
 		panic(fmt.Sprintf("Failed to read pages directory: %v", err))
@@ -44,7 +44,7 @@ func NewTemplates(pattern string) *Templates {
 		if err != nil {
 			panic(fmt.Sprintf("Failed to clone template for %s: %v", group, err))
 		}
-		_, err = clone.ParseGlob(fmt.Sprintf("templates/pages/%s/*.html", group))
+		_, err = clone.ParseGlob(filepath.Join(getProjectRoot(), "templates", "pages", group, "*.html"))
 		if err != nil {
 			panic(fmt.Sprintf("Failed to parse templates for %s: %v", group, err))
 		}
@@ -55,6 +55,47 @@ func NewTemplates(pattern string) *Templates {
 		base:  base,
 		pages: pages,
 	}
+}
+
+// getProjectRoot finds the project root directory by looking for go.mod
+func getProjectRoot() string {
+	// Start from current working directory
+	dir, err := os.Getwd()
+	if err != nil {
+		panic(fmt.Sprintf("Failed to get current working directory: %v", err))
+	}
+
+	// Walk up directories looking for go.mod
+	for {
+		// Check if go.mod exists in current directory
+		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+			return dir
+		}
+
+		// Move to parent directory
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			// Reached root directory without finding go.mod
+			break
+		}
+		dir = parent
+	}
+
+	// Fallback: try to get executable path and work backwards
+	executable, err := os.Executable()
+	if err == nil {
+		execDir := filepath.Dir(executable)
+		// If executable is in bin/ directory, go up one level
+		if filepath.Base(execDir) == "bin" {
+			return filepath.Dir(execDir)
+		}
+		// Otherwise assume executable is in project root
+		return execDir
+	}
+
+	// Final fallback: use current directory
+	cwd, _ := os.Getwd()
+	return cwd
 }
 
 func TemplateFuncs() template.FuncMap {
