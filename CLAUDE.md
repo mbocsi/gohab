@@ -30,10 +30,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Running the Application
 
 The server runs on port 8080 (web interface) and 8888 (TCP transport):
-- `./bin/server` - Start the GoHab server
+- `./bin/server` - Start the GoHab server (HTTP MCP on port 8890 by default)
+- `./bin/server -mcp-transport=stdio` - Start with stdio MCP for Claude Desktop integration
+- `./bin/server -mcp-disable` - Start without MCP server
 - `./bin/client1` - Run client1 example
 - `./bin/client2` - Run client2 example
 - `./bin/client3` - Run client3 example
+
+**MCP Integration Options:**
+- `-mcp-transport=http` (default) - HTTP MCP server on port 8890
+- `-mcp-transport=stdio` - stdio MCP for Claude Desktop integration
+- `-mcp-addr=:8891` - Custom MCP server address (HTTP mode only)
+- `-mcp-disable` - Disable MCP server entirely
 
 ## Architecture Overview
 

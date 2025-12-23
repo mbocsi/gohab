@@ -32,12 +32,13 @@ type MCPClient struct {
 	shutdown       context.CancelFunc
 }
 
-// NewMCPClient creates a new MCP client (similar to NewWebClient)
-func NewMCPClient(serviceContainer *services.ServiceContainer) *MCPClient {
+// NewMCPClient creates a new MCP client with the specified server (similar to NewWebClient)
+func NewMCPClient(serviceContainer *services.ServiceContainer, mcpServer *MCPServer) *MCPClient {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	client := &MCPClient{
 		services:       serviceContainer,
+		mcpServer:      mcpServer,
 		mcpContext:     ctx,
 		shutdown:       cancel,
 		correlationMap: sync.Map{},
@@ -57,25 +58,14 @@ func NewMCPClient(serviceContainer *services.ServiceContainer) *MCPClient {
 }
 
 // Start initializes the MCP server (similar to WebClient.Start)
-func (m *MCPClient) Start(addr string) error {
-	// Create and configure the MCP server for external clients
-	m.mcpServer = NewMCPServer("GoHab MCP Server", addr)
-
+func (m *MCPClient) Start() error {
 	// Register MCP tools
 	m.registerDeviceTools()
 	m.registerFeatureTools()
 	m.registerSystemTools()
 
-	// Start the MCP HTTP server (similar to how WebClient starts its HTTP server)
-	go func() {
-		if err := m.mcpServer.Start(); err != nil {
-			slog.Error("Failed to start MCP server", "error", err)
-		}
-	}()
-
-	m.addr = addr
-	slog.Info("Starting MCP client", "addr", addr)
-	return nil
+	// Start the MCP server (the server handles transport details internally)
+	return m.mcpServer.Start()
 }
 
 // Shutdown cleanly shuts down the MCP client (similar to WebClient.Shutdown)

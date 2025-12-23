@@ -1,7 +1,9 @@
 package main
 
 import (
+	"flag"
 	"log/slog"
+	"os"
 
 	"github.com/mbocsi/gohab/mcp"
 	"github.com/mbocsi/gohab/server"
@@ -10,6 +12,20 @@ import (
 )
 
 func main() {
+	// Parse command line flags
+	var (
+		mcpTransport = flag.String("mcp-transport", "http", "MCP transport type: 'http' or 'stdio'")
+		mcpAddr      = flag.String("mcp-addr", ":8890", "MCP server address (for HTTP transport)")
+		mcpDisable   = flag.Bool("mcp-disable", false, "Disable MCP server")
+	)
+	flag.Parse()
+
+	// If using stdio transport, set quiet logging to avoid interfering with MCP communication
+	if *mcpTransport == "stdio" {
+		// For stdio mode, we should use quiet logging or log to stderr
+		slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError})))
+	}
+
 	// Create dependencies
 	broker := server.NewBroker()
 	registry := server.NewDeviceRegistry()
@@ -66,12 +82,30 @@ func main() {
 	go webClient.Start(":8080")
 	defer webClient.Shutdown()
 
-	// Create MCP client with service layer and transport
-	mcpClient := mcp.NewMCPClient(serviceManager.GetServices())
-	inMemoryTransport.RegisterClient(mcpClient)
+	// Create MCP server
+	if !*mcpDisable {
+		var mcpServer *mcp.MCPServer
+		switch *mcpTransport {
+		case "stdio":
+			mcpServer = mcp.NewMCPServerWithStdio("GoHab MCP Server")
+		case "http":
+			mcpServer = mcp.NewMCPServerWithHTTP("GoHab MCP Server", *mcpAddr)
+		default:
+			slog.Error("Invalid MCP transport type", "transport", *mcpTransport)
+			os.Exit(1)
+		}
 
-	go mcpClient.Start(":8890")
-	defer mcpClient.Shutdown()
+		mcpClient := mcp.NewMCPClient(serviceManager.GetServices(), mcpServer)
+		inMemoryTransport.RegisterClient(mcpClient)
+
+		go func() {
+			if err := mcpClient.Start(); err != nil {
+				slog.Error("Error starting MCP stdio client", "error", err.Error())
+			}
+		}()
+
+		defer mcpClient.Shutdown()
+	}
 
 	if err := gohabServer.Start(); err != nil {
 		slog.Error("Error starting gohab server", "error", err.Error())
