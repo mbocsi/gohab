@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
 	"maps"
 	"os"
@@ -15,11 +16,18 @@ import (
 	"github.com/mbocsi/gohab/proto"
 )
 
+type LogConfig struct {
+	Level   slog.Level
+	Handler slog.Handler
+	Output  io.Writer
+}
+
 type Client struct {
 	Name      string
 	Connected bool
 	transport Transport
 	Id        string
+	logConfig *LogConfig
 
 	// Features
 	featMu        sync.RWMutex
@@ -56,8 +64,28 @@ func NewClient(name string, t Transport) *Client {
 	}
 }
 
+func NewClientWithLogging(name string, t Transport, logConfig *LogConfig) *Client {
+	return &Client{
+		Name:            name,
+		Connected:       false,
+		transport:       t,
+		logConfig:       logConfig,
+		features:    make(map[string]proto.Feature),
+		commandHandlers: make(map[string]func(proto.Message) error),
+		queryHandlers:   make(map[string]func(proto.Message) (payload any, err error)),
+		resChans:        make(map[string]chan proto.Message),
+		dataFuncs:       make(map[string]func(payload any) error),
+		statusFuncs:     make(map[string]func(payload any) error),
+		subHandlers:     make(map[string]func(proto.Message) error),
+	}
+}
+
+func (c *Client) SetLogConfig(config *LogConfig) {
+	c.logConfig = config
+}
+
 func (c *Client) Start(addr string) error {
-	setupLogger()
+	c.setupLogger()
 
 reconnect:
 	err := c.transport.Connect(addr)
@@ -470,11 +498,50 @@ func mustMarshal(v any) []byte {
 	return data
 }
 
-func setupLogger() {
-	handler := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
-		Level: slog.LevelDebug,
-	})
+func (c *Client) setupLogger() {
+	var handler slog.Handler
+
+	if c.logConfig == nil {
+		handler = slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+			Level: slog.LevelDebug,
+		})
+	} else {
+		output := c.logConfig.Output
+		if output == nil {
+			output = os.Stdout
+		}
+
+		if c.logConfig.Handler != nil {
+			handler = c.logConfig.Handler
+		} else {
+			handler = slog.NewJSONHandler(output, &slog.HandlerOptions{
+				Level: c.logConfig.Level,
+			})
+		}
+	}
+
 	slog.SetDefault(slog.New(handler))
+}
+
+func DefaultLogConfig() *LogConfig {
+	return &LogConfig{
+		Level:  slog.LevelInfo,
+		Output: os.Stdout,
+	}
+}
+
+func QuietLogConfig() *LogConfig {
+	return &LogConfig{
+		Level:  slog.LevelError,
+		Output: os.Stdout,
+	}
+}
+
+func SuppressedLogConfig() *LogConfig {
+	return &LogConfig{
+		Level:  slog.LevelError,
+		Output: io.Discard,
+	}
 }
 
 func generateCorrelationID() (string, error) {
