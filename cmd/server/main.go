@@ -20,12 +20,6 @@ func main() {
 	)
 	flag.Parse()
 
-	// If using stdio transport, set quiet logging to avoid interfering with MCP communication
-	if *mcpTransport == "stdio" {
-		// For stdio mode, we should use quiet logging or log to stderr
-		slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError})))
-	}
-
 	// Create dependencies
 	broker := server.NewBroker()
 	registry := server.NewDeviceRegistry()
@@ -42,13 +36,14 @@ func main() {
 	wsServer.SetMaxClients(2)
 	wsServer.SetDescription("The main WebSocket server for web clients")
 
-	// Create server with dependencies and optional logging config
+	// Create server with dependencies and logging config based on MCP transport
 	gohabServer := server.NewGohabServer(registry, broker)
-
-	// Example: Set custom logging configuration
-	// gohabServer.SetLogConfig(server.QuietLogConfig())     // Only errors
-	// gohabServer.SetLogConfig(server.SuppressedLogConfig()) // No logs at all
-	// gohabServer.SetLogConfig(server.DefaultLogConfig())   // Default debug level
+	
+	// If using stdio transport, suppress all logging to avoid interfering with MCP communication
+	if *mcpTransport == "stdio" {
+		gohabServer.SetLogConfig(server.SuppressedLogConfig()) // No logs at all for stdio mode
+		slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError})))
+	}
 
 	gohabServer.RegisterTransport(tcpServer)
 	gohabServer.RegisterTransport(wsServer)
