@@ -16,7 +16,7 @@ import (
 func TestSmartLightingAutomation(t *testing.T) {
 	broker := server.NewBroker()
 	registry := server.NewDeviceRegistry()
-	gohabServer := server.NewGohabServerWithLogging(registry, broker, server.QuietLogConfig())
+	gohabServer := server.NewGohabServerWithLogging(registry, broker, server.SuppressedLogConfig())
 
 	tcpPort := getRandomPort(t)
 	tcpTransport := server.NewTCPTransport(fmt.Sprintf("127.0.0.1:%d", tcpPort))
@@ -32,7 +32,7 @@ func TestSmartLightingAutomation(t *testing.T) {
 	serverAddr := fmt.Sprintf("localhost:%d", tcpPort)
 
 	// Create motion detector
-	motionDetector := client.NewClient("motion-detector-01", client.NewTCPTransport())
+	motionDetector := newQuietClient("motion-detector-01", client.NewTCPTransport())
 	err := motionDetector.AddFeature(proto.Feature{
 		Name: "motion-sensor",
 		Methods: proto.FeatureMethods{
@@ -51,7 +51,7 @@ func TestSmartLightingAutomation(t *testing.T) {
 	}
 
 	// Create brightness sensor
-	brightnessSensor := client.NewClient("brightness-sensor-01", client.NewTCPTransport())
+	brightnessSensor := newQuietClient("brightness-sensor-01", client.NewTCPTransport())
 	err = brightnessSensor.AddFeature(proto.Feature{
 		Name: "ambient-light",
 		Methods: proto.FeatureMethods{
@@ -72,8 +72,8 @@ func TestSmartLightingAutomation(t *testing.T) {
 	ledController := NewStatefulLEDClient("led-controller-01", "led-strip")
 
 	// Create central controller
-	centralController := client.NewClient("central-controller", client.NewTCPTransport())
-	
+	centralController := newQuietClient("central-controller", client.NewTCPTransport())
+
 	var lastBrightnessReading map[string]interface{}
 	var controllerMu sync.Mutex
 
@@ -161,7 +161,7 @@ func TestSmartLightingAutomation(t *testing.T) {
 			}
 		}(i, device)
 	}
-	
+
 	// Start LED controller separately
 	go func() {
 		if err := ledController.Start(serverAddr); err != nil {
@@ -197,7 +197,8 @@ func TestSmartLightingAutomation(t *testing.T) {
 
 		time.Sleep(300 * time.Millisecond)
 
-		// Step 2: Trigger motion detection
+		// Step 2: Reset LED notifications and trigger motion detection
+		ledController.ResetStateChangeNotifications()
 		err = motionDataFn(map[string]interface{}{
 			"motion":     true,
 			"location":   "living-room",
@@ -208,10 +209,7 @@ func TestSmartLightingAutomation(t *testing.T) {
 			t.Fatalf("Failed to publish motion event: %v", err)
 		}
 
-		// Step 3: Wait for automation chain to complete
-		time.Sleep(1 * time.Second)
-
-		// Step 4: Verify LED response
+		// Step 3: Wait for LED response
 		if !ledController.WaitForStateChange(2 * time.Second) {
 			t.Fatal("LED state did not change within timeout")
 		}
@@ -244,6 +242,7 @@ func TestSmartLightingAutomation(t *testing.T) {
 		}
 
 		// Step 6: Test motion stop scenario
+		ledController.ResetStateChangeNotifications()
 		err = motionDataFn(map[string]interface{}{
 			"motion":     false,
 			"location":   "living-room",
@@ -254,13 +253,11 @@ func TestSmartLightingAutomation(t *testing.T) {
 			t.Fatalf("Failed to publish motion stop: %v", err)
 		}
 
-		time.Sleep(1 * time.Second)
-
 		// Verify LED dimmed
 		if !ledController.WaitForStateChange(2 * time.Second) {
 			t.Fatal("LED state did not change for dimming")
 		}
-		
+
 		brightness, _, _ = ledController.GetState()
 		if brightness != 10 {
 			t.Errorf("Expected dimmed brightness 10, got %d", brightness)
@@ -285,6 +282,7 @@ func TestSmartLightingAutomation(t *testing.T) {
 		time.Sleep(300 * time.Millisecond)
 
 		// Trigger motion in bright conditions
+		ledController.ResetStateChangeNotifications()
 		err = motionDataFn(map[string]interface{}{
 			"motion":     true,
 			"location":   "living-room",
@@ -295,13 +293,11 @@ func TestSmartLightingAutomation(t *testing.T) {
 			t.Fatalf("Failed to publish motion in bright conditions: %v", err)
 		}
 
-		time.Sleep(1 * time.Second)
-
 		// Verify LED adjusted for bright conditions
 		if !ledController.WaitForStateChange(2 * time.Second) {
 			t.Fatal("LED state did not change for bright conditions")
 		}
-		
+
 		brightness, _, color := ledController.GetState()
 		expectedBrightness := int(100.0 - (200.0 / 10.0)) // Should be 80%
 		if brightness != expectedBrightness {
@@ -315,9 +311,25 @@ func TestSmartLightingAutomation(t *testing.T) {
 	// Test automation timing (should complete within 2 seconds)
 	t.Run("AutomationTiming", func(t *testing.T) {
 		motionDataFn, _ := motionDetector.GetDataFunction("motion-sensor")
-		
+		brightnessDataFn, _ := brightnessSensor.GetDataFunction("ambient-light")
+
+		// Reset ambient light state to avoid interference from previous tests
+		err = brightnessDataFn(map[string]interface{}{
+			"brightness": 30.0, // Reset to low ambient light
+			"location":   "living-room",
+			"timestamp":  time.Now().UTC().Format(time.RFC3339),
+		})
+		if err != nil {
+			t.Fatalf("Failed to reset brightness reading: %v", err)
+		}
+
+		time.Sleep(300 * time.Millisecond)
+
+		// Reset any pending state change notifications from previous tests
+		ledController.ResetStateChangeNotifications()
+
 		startTime := time.Now()
-		
+
 		// Trigger motion
 		err = motionDataFn(map[string]interface{}{
 			"motion":     true,
@@ -345,7 +357,7 @@ func TestSmartLightingAutomation(t *testing.T) {
 func TestHVACTemperatureControl(t *testing.T) {
 	broker := server.NewBroker()
 	registry := server.NewDeviceRegistry()
-	gohabServer := server.NewGohabServerWithLogging(registry, broker, server.QuietLogConfig())
+	gohabServer := server.NewGohabServerWithLogging(registry, broker, server.SuppressedLogConfig())
 
 	tcpPort := getRandomPort(t)
 	tcpTransport := server.NewTCPTransport(fmt.Sprintf("127.0.0.1:%d", tcpPort))
@@ -368,8 +380,8 @@ func TestHVACTemperatureControl(t *testing.T) {
 
 	// Create HVAC controller
 	var err error
-	hvacController := client.NewClient("hvac-unit", client.NewTCPTransport())
-	
+	hvacController := newQuietClient("hvac-unit", client.NewTCPTransport())
+
 	var hvacStatus string = "idle"
 	var hvacPower float64 = 0.0
 	var hvacMu sync.Mutex
@@ -385,9 +397,9 @@ func TestHVACTemperatureControl(t *testing.T) {
 			},
 			Status: proto.Method{
 				OutputSchema: map[string]proto.DataType{
-					"status":       {Type: "enum", Enum: []string{"heating", "cooling", "idle"}},
-					"power_usage":  {Type: "number", Unit: "watts"},
-					"efficiency":   {Type: "number", Unit: "percent"},
+					"status":      {Type: "enum", Enum: []string{"heating", "cooling", "idle"}},
+					"power_usage": {Type: "number", Unit: "watts"},
+					"efficiency":  {Type: "number", Unit: "percent"},
 				},
 			},
 		},
@@ -441,8 +453,8 @@ func TestHVACTemperatureControl(t *testing.T) {
 	}
 
 	// Create central climate controller
-	climateController := client.NewClient("climate-controller", client.NewTCPTransport())
-	
+	climateController := newQuietClient("climate-controller", client.NewTCPTransport())
+
 	var climateMu sync.Mutex
 
 	// Subscribe to temperature readings
@@ -502,14 +514,14 @@ func TestHVACTemperatureControl(t *testing.T) {
 			}
 		}(i, device)
 	}
-	
+
 	// Start stateful devices separately
 	go func() {
 		if err := tempSensor.Start(serverAddr); err != nil {
 			t.Errorf("Temperature sensor failed: %v", err)
 		}
 	}()
-	
+
 	go func() {
 		if err := thermostat.Start(serverAddr); err != nil {
 			t.Errorf("Thermostat failed: %v", err)
@@ -640,7 +652,7 @@ func TestHVACTemperatureControl(t *testing.T) {
 func TestMultiZoneHomeAutomation(t *testing.T) {
 	broker := server.NewBroker()
 	registry := server.NewDeviceRegistry()
-	gohabServer := server.NewGohabServerWithLogging(registry, broker, server.QuietLogConfig())
+	gohabServer := server.NewGohabServerWithLogging(registry, broker, server.SuppressedLogConfig())
 
 	tcpPort := getRandomPort(t)
 	tcpTransport := server.NewTCPTransport(fmt.Sprintf("127.0.0.1:%d", tcpPort))
@@ -662,8 +674,8 @@ func TestMultiZoneHomeAutomation(t *testing.T) {
 	// Create devices for each zone
 	for _, zone := range zones {
 		// Occupancy sensor for each zone
-		_ = client.NewClient(fmt.Sprintf("%s-occupancy", zone), client.NewTCPTransport())
-		occupancySensor := client.NewClient(fmt.Sprintf("%s-occupancy", zone), client.NewTCPTransport())
+		_ = newQuietClient(fmt.Sprintf("%s-occupancy", zone), client.NewTCPTransport())
+		occupancySensor := newQuietClient(fmt.Sprintf("%s-occupancy", zone), client.NewTCPTransport())
 		err := occupancySensor.AddFeature(proto.Feature{
 			Name: fmt.Sprintf("%s-occupancy", zone),
 			Methods: proto.FeatureMethods{
@@ -681,7 +693,7 @@ func TestMultiZoneHomeAutomation(t *testing.T) {
 		}
 
 		// Light controller for each zone
-		lightController := client.NewClient(fmt.Sprintf("%s-lights", zone), client.NewTCPTransport())
+		lightController := newQuietClient(fmt.Sprintf("%s-lights", zone), client.NewTCPTransport())
 		err = lightController.AddFeature(proto.Feature{
 			Name: fmt.Sprintf("%s-lighting", zone),
 			Methods: proto.FeatureMethods{
@@ -751,8 +763,8 @@ func TestMultiZoneHomeAutomation(t *testing.T) {
 	}
 
 	// Create central automation controller
-	automationController := client.NewClient("home-automation", client.NewTCPTransport())
-	
+	automationController := newQuietClient("home-automation", client.NewTCPTransport())
+
 	// Subscribe to all occupancy sensors
 	for _, zone := range zones {
 		zoneName := zone // Capture for closure
@@ -825,14 +837,14 @@ func TestMultiZoneHomeAutomation(t *testing.T) {
 					break
 				}
 			}
-			
+
 			if !found {
 				t.Errorf("Occupancy sensor not found for zone %s", zone)
 			}
 
 			// Simulate occupancy detection (we'll use automation controller to simulate)
 			// In a real scenario, we'd get the actual data publishing function
-			
+
 			// For this test, we verify the subscription framework is working
 			// Full end-to-end testing would require more complex device tracking
 		}
@@ -871,7 +883,7 @@ func TestAdvancedLEDControl(t *testing.T) {
 	// Start server
 	broker := server.NewBroker()
 	registry := server.NewDeviceRegistry()
-	gohabServer := server.NewGohabServerWithLogging(registry, broker, server.QuietLogConfig())
+	gohabServer := server.NewGohabServerWithLogging(registry, broker, server.SuppressedLogConfig())
 
 	tcpPort := getRandomPort(t)
 	tcpTransport := server.NewTCPTransport(fmt.Sprintf("127.0.0.1:%d", tcpPort))
@@ -890,7 +902,7 @@ func TestAdvancedLEDControl(t *testing.T) {
 	ledDevice := NewStatefulLEDClient("living-room-led", "living-room-led")
 
 	// Create controller client to send commands
-	controller := client.NewClient("controller", client.NewTCPTransport())
+	controller := newQuietClient("controller", client.NewTCPTransport())
 
 	// Start both clients
 	go func() {
@@ -995,7 +1007,7 @@ func TestAdvancedLEDControl(t *testing.T) {
 
 		// Verify query response matches device state
 		brightness, isOn, color := ledDevice.GetState()
-		
+
 		if state["brightness"].(float64) != float64(brightness) {
 			t.Errorf("Query brightness mismatch: expected %d, got %f", brightness, state["brightness"])
 		}
@@ -1013,7 +1025,7 @@ func TestAdvancedThermostatCoordination(t *testing.T) {
 	// Start server
 	broker := server.NewBroker()
 	registry := server.NewDeviceRegistry()
-	gohabServer := server.NewGohabServerWithLogging(registry, broker, server.QuietLogConfig())
+	gohabServer := server.NewGohabServerWithLogging(registry, broker, server.SuppressedLogConfig())
 
 	tcpPort := getRandomPort(t)
 	tcpTransport := server.NewTCPTransport(fmt.Sprintf("127.0.0.1:%d", tcpPort))
@@ -1035,7 +1047,7 @@ func TestAdvancedThermostatCoordination(t *testing.T) {
 	tempSensor := NewStatefulTemperatureSensor("room-temp-sensor")
 
 	// Create controller client
-	controller := client.NewClient("home-controller", client.NewTCPTransport())
+	controller := newQuietClient("home-controller", client.NewTCPTransport())
 
 	// Start all clients
 	go func() {
@@ -1186,7 +1198,7 @@ func TestPubSubDeviceCoordination(t *testing.T) {
 	// Start server
 	broker := server.NewBroker()
 	registry := server.NewDeviceRegistry()
-	gohabServer := server.NewGohabServerWithLogging(registry, broker, server.QuietLogConfig())
+	gohabServer := server.NewGohabServerWithLogging(registry, broker, server.SuppressedLogConfig())
 
 	tcpPort := getRandomPort(t)
 	tcpTransport := server.NewTCPTransport(fmt.Sprintf("127.0.0.1:%d", tcpPort))
@@ -1309,12 +1321,12 @@ func TestPubSubDeviceCoordination(t *testing.T) {
 	temperatureMutex.Unlock()
 }
 
-// TestEnhancedMultiDeviceCoordination tests comprehensive multi-device orchestration scenarios  
+// TestEnhancedMultiDeviceCoordination tests comprehensive multi-device orchestration scenarios
 func TestEnhancedMultiDeviceCoordination(t *testing.T) {
 	// Start server
 	broker := server.NewBroker()
 	registry := server.NewDeviceRegistry()
-	gohabServer := server.NewGohabServerWithLogging(registry, broker, server.QuietLogConfig())
+	gohabServer := server.NewGohabServerWithLogging(registry, broker, server.SuppressedLogConfig())
 
 	tcpPort := getRandomPort(t)
 	tcpTransport := server.NewTCPTransport(fmt.Sprintf("127.0.0.1:%d", tcpPort))
@@ -1334,7 +1346,7 @@ func TestEnhancedMultiDeviceCoordination(t *testing.T) {
 	led2 := NewStatefulLEDClient("kitchen-led", "kitchen-led")
 	thermostat := NewStatefulThermostat("main-thermostat")
 	tempSensor := NewStatefulTemperatureSensor("living-room-sensor")
-	controller := client.NewClient("central-controller", client.NewTCPTransport())
+	controller := newQuietClient("central-controller", client.NewTCPTransport())
 
 	// Start all devices
 	go func() {
@@ -1419,10 +1431,10 @@ func TestEnhancedMultiDeviceCoordination(t *testing.T) {
 	t.Run("IndividualDeviceQueries", func(t *testing.T) {
 		// Query each device type
 		devices := map[string]string{
-			"bedroom-led": "bedroom-led",
-			"kitchen-led": "kitchen-led",
-			"hvac-control":  "thermostat",
-			"temperature": "temperature sensor",
+			"bedroom-led":  "bedroom-led",
+			"kitchen-led":  "kitchen-led",
+			"hvac-control": "thermostat",
+			"temperature":  "temperature sensor",
 		}
 
 		for topic, name := range devices {

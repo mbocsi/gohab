@@ -14,7 +14,7 @@ import (
 func TestDeviceIdentificationAndRegistration(t *testing.T) {
 	broker := server.NewBroker()
 	registry := server.NewDeviceRegistry()
-	gohabServer := server.NewGohabServerWithLogging(registry, broker, server.QuietLogConfig())
+	gohabServer := server.NewGohabServerWithLogging(registry, broker, server.SuppressedLogConfig())
 
 	tcpPort := getRandomPort(t)
 	tcpTransport := server.NewTCPTransport(fmt.Sprintf("127.0.0.1:%d", tcpPort))
@@ -30,7 +30,7 @@ func TestDeviceIdentificationAndRegistration(t *testing.T) {
 	serverAddr := fmt.Sprintf("localhost:%d", tcpPort)
 
 	// Create client with valid features
-	c := client.NewClient("test-device", client.NewTCPTransport())
+	c := newQuietClient("test-device", client.NewTCPTransport())
 
 	// Add multiple features to test comprehensive registration
 	tempFeature := proto.Feature{
@@ -182,7 +182,7 @@ func TestDeviceIdentificationAndRegistration(t *testing.T) {
 func TestDeviceInvalidCapabilities(t *testing.T) {
 	broker := server.NewBroker()
 	registry := server.NewDeviceRegistry()
-	gohabServer := server.NewGohabServerWithLogging(registry, broker, server.QuietLogConfig())
+	gohabServer := server.NewGohabServerWithLogging(registry, broker, server.SuppressedLogConfig())
 
 	tcpPort := getRandomPort(t)
 	tcpTransport := server.NewTCPTransport(fmt.Sprintf("127.0.0.1:%d", tcpPort))
@@ -197,7 +197,7 @@ func TestDeviceInvalidCapabilities(t *testing.T) {
 
 	// Test invalid data type
 	t.Run("InvalidDataType", func(t *testing.T) {
-		c := client.NewClient("invalid-datatype", client.NewTCPTransport())
+		c := newQuietClient("invalid-datatype", client.NewTCPTransport())
 
 		invalidFeature := proto.Feature{
 			Name: "invalid-sensor",
@@ -218,7 +218,7 @@ func TestDeviceInvalidCapabilities(t *testing.T) {
 
 	// Test empty enum
 	t.Run("EmptyEnum", func(t *testing.T) {
-		c := client.NewClient("empty-enum", client.NewTCPTransport())
+		c := newQuietClient("empty-enum", client.NewTCPTransport())
 
 		invalidFeature := proto.Feature{
 			Name: "empty-enum-sensor",
@@ -239,7 +239,7 @@ func TestDeviceInvalidCapabilities(t *testing.T) {
 
 	// Test feature with no methods
 	t.Run("NoMethods", func(t *testing.T) {
-		c := client.NewClient("no-methods", client.NewTCPTransport())
+		c := newQuietClient("no-methods", client.NewTCPTransport())
 
 		invalidFeature := proto.Feature{
 			Name:    "no-methods-feature",
@@ -254,7 +254,7 @@ func TestDeviceInvalidCapabilities(t *testing.T) {
 
 	// Test invalid range specification
 	t.Run("InvalidRange", func(t *testing.T) {
-		c := client.NewClient("invalid-range", client.NewTCPTransport())
+		c := newQuietClient("invalid-range", client.NewTCPTransport())
 
 		invalidFeature := proto.Feature{
 			Name: "invalid-range-sensor",
@@ -278,7 +278,7 @@ func TestDeviceInvalidCapabilities(t *testing.T) {
 func TestDuplicateDeviceNames(t *testing.T) {
 	broker := server.NewBroker()
 	registry := server.NewDeviceRegistry()
-	gohabServer := server.NewGohabServerWithLogging(registry, broker, server.QuietLogConfig())
+	gohabServer := server.NewGohabServerWithLogging(registry, broker, server.SuppressedLogConfig())
 
 	tcpPort := getRandomPort(t)
 	tcpTransport := server.NewTCPTransport(fmt.Sprintf("127.0.0.1:%d", tcpPort))
@@ -294,8 +294,8 @@ func TestDuplicateDeviceNames(t *testing.T) {
 	serverAddr := fmt.Sprintf("localhost:%d", tcpPort)
 
 	// Create two clients with same proposed name
-	c1 := client.NewClient("duplicate-name", client.NewTCPTransport())
-	c2 := client.NewClient("duplicate-name", client.NewTCPTransport())
+	c1 := newQuietClient("duplicate-name", client.NewTCPTransport())
+	c2 := newQuietClient("duplicate-name", client.NewTCPTransport())
 
 	// Add features to both clients
 	feature1 := proto.Feature{
@@ -389,7 +389,7 @@ func TestDuplicateDeviceNames(t *testing.T) {
 func TestDeviceGracefulDisconnection(t *testing.T) {
 	broker := server.NewBroker()
 	registry := server.NewDeviceRegistry()
-	gohabServer := server.NewGohabServerWithLogging(registry, broker, server.QuietLogConfig())
+	gohabServer := server.NewGohabServerWithLogging(registry, broker, server.SuppressedLogConfig())
 
 	tcpPort := getRandomPort(t)
 	tcpTransport := server.NewTCPTransport(fmt.Sprintf("127.0.0.1:%d", tcpPort))
@@ -405,7 +405,7 @@ func TestDeviceGracefulDisconnection(t *testing.T) {
 	serverAddr := fmt.Sprintf("localhost:%d", tcpPort)
 
 	// Create client with subscription
-	c := client.NewClient("disconnect-test", client.NewTCPTransport())
+	c := newQuietClient("disconnect-test", client.NewTCPTransport())
 
 	feature := proto.Feature{
 		Name: "disconnect-sensor",

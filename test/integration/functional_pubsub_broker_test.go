@@ -16,7 +16,7 @@ import (
 func TestSubscriptionManagement(t *testing.T) {
 	broker := server.NewBroker()
 	registry := server.NewDeviceRegistry()
-	gohabServer := server.NewGohabServerWithLogging(registry, broker, server.QuietLogConfig())
+	gohabServer := server.NewGohabServerWithLogging(registry, broker, server.SuppressedLogConfig())
 
 	tcpPort := getRandomPort(t)
 	tcpTransport := server.NewTCPTransport(fmt.Sprintf("127.0.0.1:%d", tcpPort))
@@ -32,7 +32,7 @@ func TestSubscriptionManagement(t *testing.T) {
 	serverAddr := fmt.Sprintf("localhost:%d", tcpPort)
 
 	// Create publisher
-	publisher := client.NewClient("test-publisher", client.NewTCPTransport())
+	publisher := newQuietClient("test-publisher", client.NewTCPTransport())
 	err := publisher.AddFeature(proto.Feature{
 		Name: "test-topic",
 		Methods: proto.FeatureMethods{
@@ -49,7 +49,7 @@ func TestSubscriptionManagement(t *testing.T) {
 	}
 
 	// Create subscriber
-	subscriber := client.NewClient("test-subscriber", client.NewTCPTransport())
+	subscriber := newQuietClient("test-subscriber", client.NewTCPTransport())
 
 	var receivedMessages []map[string]interface{}
 	var msgMu sync.Mutex
@@ -137,7 +137,7 @@ func TestSubscriptionManagement(t *testing.T) {
 
 	// Test subscription to non-existent topic
 	t.Run("SubscriptionToNonExistentTopic", func(t *testing.T) {
-		newSubscriber := client.NewClient("new-subscriber", client.NewTCPTransport())
+		newSubscriber := newQuietClient("new-subscriber", client.NewTCPTransport())
 
 		var nonExistentMessages []map[string]interface{}
 		var nonExistentMu sync.Mutex
@@ -186,7 +186,7 @@ func TestSubscriptionManagement(t *testing.T) {
 func TestMultipleSubscribers(t *testing.T) {
 	broker := server.NewBroker()
 	registry := server.NewDeviceRegistry()
-	gohabServer := server.NewGohabServerWithLogging(registry, broker, server.QuietLogConfig())
+	gohabServer := server.NewGohabServerWithLogging(registry, broker, server.SuppressedLogConfig())
 
 	tcpPort := getRandomPort(t)
 	tcpTransport := server.NewTCPTransport(fmt.Sprintf("127.0.0.1:%d", tcpPort))
@@ -202,7 +202,7 @@ func TestMultipleSubscribers(t *testing.T) {
 	serverAddr := fmt.Sprintf("localhost:%d", tcpPort)
 
 	// Create publisher
-	publisher := client.NewClient("multi-publisher", client.NewTCPTransport())
+	publisher := newQuietClient("multi-publisher", client.NewTCPTransport())
 	err := publisher.AddFeature(proto.Feature{
 		Name: "broadcast-topic",
 		Methods: proto.FeatureMethods{
@@ -226,7 +226,7 @@ func TestMultipleSubscribers(t *testing.T) {
 	countMutexes := make([]sync.Mutex, numSubscribers)
 
 	for i := 0; i < numSubscribers; i++ {
-		subscribers[i] = client.NewClient(fmt.Sprintf("subscriber-%d", i), client.NewTCPTransport())
+		subscribers[i] = newQuietClient(fmt.Sprintf("subscriber-%d", i), client.NewTCPTransport())
 
 		// Capture the index for the closure
 		idx := i
@@ -316,7 +316,7 @@ func TestMultipleSubscribers(t *testing.T) {
 func TestMessageRouting(t *testing.T) {
 	broker := server.NewBroker()
 	registry := server.NewDeviceRegistry()
-	gohabServer := server.NewGohabServerWithLogging(registry, broker, server.QuietLogConfig())
+	gohabServer := server.NewGohabServerWithLogging(registry, broker, server.SuppressedLogConfig())
 
 	tcpPort := getRandomPort(t)
 	tcpTransport := server.NewTCPTransport(fmt.Sprintf("127.0.0.1:%d", tcpPort))
@@ -332,7 +332,7 @@ func TestMessageRouting(t *testing.T) {
 	serverAddr := fmt.Sprintf("localhost:%d", tcpPort)
 
 	// Create publishers for different topics
-	tempPublisher := client.NewClient("temp-publisher", client.NewTCPTransport())
+	tempPublisher := newQuietClient("temp-publisher", client.NewTCPTransport())
 	err := tempPublisher.AddFeature(proto.Feature{
 		Name: "temperature",
 		Methods: proto.FeatureMethods{
@@ -348,7 +348,7 @@ func TestMessageRouting(t *testing.T) {
 		t.Fatalf("Failed to add temperature feature: %v", err)
 	}
 
-	lightPublisher := client.NewClient("light-publisher", client.NewTCPTransport())
+	lightPublisher := newQuietClient("light-publisher", client.NewTCPTransport())
 	err = lightPublisher.AddFeature(proto.Feature{
 		Name: "lighting",
 		Methods: proto.FeatureMethods{
@@ -365,8 +365,8 @@ func TestMessageRouting(t *testing.T) {
 	}
 
 	// Create specialized subscribers
-	tempSubscriber := client.NewClient("temp-monitor", client.NewTCPTransport())
-	lightSubscriber := client.NewClient("light-monitor", client.NewTCPTransport())
+	tempSubscriber := newQuietClient("temp-monitor", client.NewTCPTransport())
+	lightSubscriber := newQuietClient("light-monitor", client.NewTCPTransport())
 
 	var tempMessages []map[string]interface{}
 	var lightMessages []map[string]interface{}
@@ -540,7 +540,7 @@ func TestMessageRouting(t *testing.T) {
 func TestCrossDeviceCommunication(t *testing.T) {
 	broker := server.NewBroker()
 	registry := server.NewDeviceRegistry()
-	gohabServer := server.NewGohabServerWithLogging(registry, broker, server.QuietLogConfig())
+	gohabServer := server.NewGohabServerWithLogging(registry, broker, server.SuppressedLogConfig())
 
 	tcpPort := getRandomPort(t)
 	tcpTransport := server.NewTCPTransport(fmt.Sprintf("127.0.0.1:%d", tcpPort))
@@ -556,7 +556,7 @@ func TestCrossDeviceCommunication(t *testing.T) {
 	serverAddr := fmt.Sprintf("localhost:%d", tcpPort)
 
 	// Create motion sensor
-	motionSensor := client.NewClient("motion-sensor", client.NewTCPTransport())
+	motionSensor := newQuietClient("motion-sensor", client.NewTCPTransport())
 	err := motionSensor.AddFeature(proto.Feature{
 		Name: "motion-detection",
 		Methods: proto.FeatureMethods{
@@ -575,7 +575,7 @@ func TestCrossDeviceCommunication(t *testing.T) {
 	}
 
 	// Create smart light that reacts to motion
-	smartLight := client.NewClient("smart-light", client.NewTCPTransport())
+	smartLight := newQuietClient("smart-light", client.NewTCPTransport())
 
 	var lightState bool
 	var lightBrightness int
@@ -637,7 +637,7 @@ func TestCrossDeviceCommunication(t *testing.T) {
 	}
 
 	// Create controller to monitor light status
-	controller := client.NewClient("automation-controller", client.NewTCPTransport())
+	controller := newQuietClient("automation-controller", client.NewTCPTransport())
 
 	var lightStatusUpdates []map[string]interface{}
 	var statusMu sync.Mutex
@@ -762,7 +762,7 @@ func TestCrossDeviceCommunication(t *testing.T) {
 func TestSubscriptionPersistence(t *testing.T) {
 	broker := server.NewBroker()
 	registry := server.NewDeviceRegistry()
-	gohabServer := server.NewGohabServerWithLogging(registry, broker, server.QuietLogConfig())
+	gohabServer := server.NewGohabServerWithLogging(registry, broker, server.SuppressedLogConfig())
 
 	tcpPort := getRandomPort(t)
 	tcpTransport := server.NewTCPTransport(fmt.Sprintf("127.0.0.1:%d", tcpPort))
@@ -778,7 +778,7 @@ func TestSubscriptionPersistence(t *testing.T) {
 	serverAddr := fmt.Sprintf("localhost:%d", tcpPort)
 
 	// Create persistent subscriber
-	subscriber := client.NewClient("persistent-subscriber", client.NewTCPTransport())
+	subscriber := newQuietClient("persistent-subscriber", client.NewTCPTransport())
 
 	var messagesReceived []map[string]interface{}
 	var msgMu sync.Mutex
@@ -816,7 +816,7 @@ func TestSubscriptionPersistence(t *testing.T) {
 	}
 
 	// Create publisher after subscriber is connected
-	publisher := client.NewClient("test-publisher", client.NewTCPTransport())
+	publisher := newQuietClient("test-publisher", client.NewTCPTransport())
 	err = publisher.AddFeature(proto.Feature{
 		Name: "persistent-topic",
 		Methods: proto.FeatureMethods{

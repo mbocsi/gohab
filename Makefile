@@ -30,7 +30,7 @@ test-integration:
 # Enhanced testing commands
 test-functional:
 	@echo "Running functional integration tests..."
-	go test ./test/integration/functional_*.go ./test/integration/utils.go -v
+	go test ./test/integration/functional_*.go ./test/integration/utils.go ./test/integration/stateful_devices.go -v
 
 # Targeted test execution (usage: make test-run TEST=TestName [FILES="path/to/test.go"])
 test-run:

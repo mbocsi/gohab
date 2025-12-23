@@ -12,11 +12,12 @@ import (
 	"github.com/mbocsi/gohab/server"
 )
 
+
 // Test command message execution
 func TestCommandMessageExecution(t *testing.T) {
 	broker := server.NewBroker()
 	registry := server.NewDeviceRegistry()
-	gohabServer := server.NewGohabServerWithLogging(registry, broker, server.QuietLogConfig())
+	gohabServer := server.NewGohabServerWithLogging(registry, broker, server.SuppressedLogConfig())
 
 	tcpPort := getRandomPort(t)
 	tcpTransport := server.NewTCPTransport(fmt.Sprintf("127.0.0.1:%d", tcpPort))
@@ -32,7 +33,7 @@ func TestCommandMessageExecution(t *testing.T) {
 	serverAddr := fmt.Sprintf("localhost:%d", tcpPort)
 
 	// Create LED device that can receive commands
-	ledDevice := client.NewClient("led-device", client.NewTCPTransport())
+	ledDevice := newQuietClient("led-device", client.NewTCPTransport())
 
 	// Track command execution
 	var commandReceived bool
@@ -89,7 +90,7 @@ func TestCommandMessageExecution(t *testing.T) {
 	}
 
 	// Create controller client
-	controller := client.NewClient("controller", client.NewTCPTransport())
+	controller := newQuietClient("controller", client.NewTCPTransport())
 
 	// Start both clients
 	go func() {
@@ -216,7 +217,7 @@ func TestCommandMessageExecution(t *testing.T) {
 func TestQueryMessageHandling(t *testing.T) {
 	broker := server.NewBroker()
 	registry := server.NewDeviceRegistry()
-	gohabServer := server.NewGohabServerWithLogging(registry, broker, server.QuietLogConfig())
+	gohabServer := server.NewGohabServerWithLogging(registry, broker, server.SuppressedLogConfig())
 
 	tcpPort := getRandomPort(t)
 	tcpTransport := server.NewTCPTransport(fmt.Sprintf("127.0.0.1:%d", tcpPort))
@@ -232,7 +233,7 @@ func TestQueryMessageHandling(t *testing.T) {
 	serverAddr := fmt.Sprintf("localhost:%d", tcpPort)
 
 	// Create temperature sensor device
-	tempDevice := client.NewClient("temp-sensor", client.NewTCPTransport())
+	tempDevice := newQuietClient("temp-sensor", client.NewTCPTransport())
 
 	currentTemp := 22.5
 	currentHumidity := 65.0
@@ -274,7 +275,7 @@ func TestQueryMessageHandling(t *testing.T) {
 	}
 
 	// Create controller
-	controller := client.NewClient("temp-controller", client.NewTCPTransport())
+	controller := newQuietClient("temp-controller", client.NewTCPTransport())
 
 	// Start both clients
 	go func() {
@@ -414,7 +415,7 @@ func TestQueryMessageHandling(t *testing.T) {
 func TestDataPublishing(t *testing.T) {
 	broker := server.NewBroker()
 	registry := server.NewDeviceRegistry()
-	gohabServer := server.NewGohabServerWithLogging(registry, broker, server.QuietLogConfig())
+	gohabServer := server.NewGohabServerWithLogging(registry, broker, server.SuppressedLogConfig())
 
 	tcpPort := getRandomPort(t)
 	tcpTransport := server.NewTCPTransport(fmt.Sprintf("127.0.0.1:%d", tcpPort))
@@ -430,7 +431,7 @@ func TestDataPublishing(t *testing.T) {
 	serverAddr := fmt.Sprintf("localhost:%d", tcpPort)
 
 	// Create sensor device
-	sensor := client.NewClient("data-sensor", client.NewTCPTransport())
+	sensor := newQuietClient("data-sensor", client.NewTCPTransport())
 
 	sensorFeature := proto.Feature{
 		Name: "environmental-data",
@@ -452,7 +453,7 @@ func TestDataPublishing(t *testing.T) {
 	}
 
 	// Create subscriber
-	subscriber := client.NewClient("data-subscriber", client.NewTCPTransport())
+	subscriber := newQuietClient("data-subscriber", client.NewTCPTransport())
 
 	var receivedMessages []map[string]interface{}
 	var msgMu sync.Mutex
@@ -647,7 +648,7 @@ func TestDataPublishing(t *testing.T) {
 func TestStatusReporting(t *testing.T) {
 	broker := server.NewBroker()
 	registry := server.NewDeviceRegistry()
-	gohabServer := server.NewGohabServerWithLogging(registry, broker, server.QuietLogConfig())
+	gohabServer := server.NewGohabServerWithLogging(registry, broker, server.SuppressedLogConfig())
 
 	tcpPort := getRandomPort(t)
 	tcpTransport := server.NewTCPTransport(fmt.Sprintf("127.0.0.1:%d", tcpPort))
@@ -663,7 +664,7 @@ func TestStatusReporting(t *testing.T) {
 	serverAddr := fmt.Sprintf("localhost:%d", tcpPort)
 
 	// Create device with status reporting
-	device := client.NewClient("status-device", client.NewTCPTransport())
+	device := newQuietClient("status-device", client.NewTCPTransport())
 
 	currentStatus := "ok"
 	uptime := 0
@@ -708,7 +709,7 @@ func TestStatusReporting(t *testing.T) {
 	}
 
 	// Create monitor client
-	monitor := client.NewClient("status-monitor", client.NewTCPTransport())
+	monitor := newQuietClient("status-monitor", client.NewTCPTransport())
 
 	var statusUpdates []map[string]interface{}
 	var statusMu sync.Mutex

@@ -10,12 +10,13 @@ import (
 	"github.com/mbocsi/gohab/server"
 )
 
+
 // Test TCP transport with multiple simultaneous clients
 func TestTCPTransportMultipleClients(t *testing.T) {
 	// Start server
 	broker := server.NewBroker()
 	registry := server.NewDeviceRegistry()
-	gohabServer := server.NewGohabServerWithLogging(registry, broker, server.QuietLogConfig())
+	gohabServer := server.NewGohabServerWithLogging(registry, broker, server.SuppressedLogConfig())
 
 	tcpPort := getRandomPort(t)
 	tcpTransport := server.NewTCPTransport(fmt.Sprintf("127.0.0.1:%d", tcpPort))
@@ -34,7 +35,7 @@ func TestTCPTransportMultipleClients(t *testing.T) {
 	// Create multiple TCP clients
 	clients := make([]*client.Client, numClients)
 	for i := 0; i < numClients; i++ {
-		clients[i] = client.NewClient(fmt.Sprintf("tcp-client-%d", i), client.NewTCPTransport())
+		clients[i] = newQuietClient(fmt.Sprintf("tcp-client-%d", i), client.NewTCPTransport())
 		
 		err := clients[i].AddFeature(proto.Feature{
 			Name: fmt.Sprintf("sensor-%d", i),
@@ -92,7 +93,7 @@ func TestTCPTransportMultipleClients(t *testing.T) {
 func TestWebSocketMessageStreaming(t *testing.T) {
 	broker := server.NewBroker()
 	registry := server.NewDeviceRegistry()
-	gohabServer := server.NewGohabServerWithLogging(registry, broker, server.QuietLogConfig())
+	gohabServer := server.NewGohabServerWithLogging(registry, broker, server.SuppressedLogConfig())
 
 	wsPort := getRandomPort(t)
 	wsTransport := server.NewWSTransport(fmt.Sprintf("127.0.0.1:%d", wsPort))
@@ -106,7 +107,7 @@ func TestWebSocketMessageStreaming(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	// Create WebSocket client
-	c := client.NewClient("ws-streamer", client.NewWebSocketTransport())
+	c := newQuietClient("ws-streamer", client.NewWebSocketTransport())
 	err := c.AddFeature(proto.Feature{
 		Name: "high-freq-sensor",
 		Methods: proto.FeatureMethods{
@@ -172,7 +173,7 @@ func TestWebSocketMessageStreaming(t *testing.T) {
 func TestMixedTransportCommunication(t *testing.T) {
 	broker := server.NewBroker()
 	registry := server.NewDeviceRegistry()
-	gohabServer := server.NewGohabServerWithLogging(registry, broker, server.QuietLogConfig())
+	gohabServer := server.NewGohabServerWithLogging(registry, broker, server.SuppressedLogConfig())
 
 	tcpPort := getRandomPort(t)
 	wsPort := getRandomPort(t)
@@ -191,7 +192,7 @@ func TestMixedTransportCommunication(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	// Create TCP publisher
-	tcpClient := client.NewClient("tcp-publisher", client.NewTCPTransport())
+	tcpClient := newQuietClient("tcp-publisher", client.NewTCPTransport())
 	err := tcpClient.AddFeature(proto.Feature{
 		Name: "tcp-data",
 		Methods: proto.FeatureMethods{
@@ -208,7 +209,7 @@ func TestMixedTransportCommunication(t *testing.T) {
 	}
 
 	// Create WebSocket subscriber
-	wsClient := client.NewClient("ws-subscriber", client.NewWebSocketTransport())
+	wsClient := newQuietClient("ws-subscriber", client.NewWebSocketTransport())
 	err = wsClient.AddFeature(proto.Feature{
 		Name: "ws-receiver",
 		Methods: proto.FeatureMethods{
@@ -301,7 +302,7 @@ testCrossCommunication:
 func TestTCPClientReconnection(t *testing.T) {
 	broker := server.NewBroker()
 	registry := server.NewDeviceRegistry()
-	gohabServer := server.NewGohabServerWithLogging(registry, broker, server.QuietLogConfig())
+	gohabServer := server.NewGohabServerWithLogging(registry, broker, server.SuppressedLogConfig())
 
 	tcpPort := getRandomPort(t)
 	tcpTransport := server.NewTCPTransport(fmt.Sprintf("127.0.0.1:%d", tcpPort))
@@ -317,7 +318,7 @@ func TestTCPClientReconnection(t *testing.T) {
 	serverAddr := fmt.Sprintf("localhost:%d", tcpPort)
 
 	// Create client
-	c := client.NewClient("reconnect-test", client.NewTCPTransport())
+	c := newQuietClient("reconnect-test", client.NewTCPTransport())
 	err := c.AddFeature(proto.Feature{
 		Name: "persistent-sensor",
 		Methods: proto.FeatureMethods{

@@ -22,12 +22,12 @@ type StatefulLEDClient struct {
 
 func NewStatefulLEDClient(name string, featureName string) *StatefulLEDClient {
 	c := &StatefulLEDClient{
-		client:       client.NewClient(name, client.NewTCPTransport()),
+		client:       newQuietClient(name, client.NewTCPTransport()),
 		featureName:  featureName,
 		brightness:   0,
 		isOn:         false,
 		color:        "warm",
-		stateChanged: make(chan struct{}, 10),
+		stateChanged: make(chan struct{}, 1),
 	}
 
 	// Add LED feature with command and query support
@@ -114,6 +114,12 @@ func (l *StatefulLEDClient) handleCommand(msg proto.Message) error {
 		select {
 		case l.stateChanged <- struct{}{}:
 		default:
+			// Channel full, drain one old notification and send new one
+			select {
+			case <-l.stateChanged:
+			default:
+			}
+			l.stateChanged <- struct{}{}
 		}
 	}
 
@@ -163,6 +169,19 @@ func (l *StatefulLEDClient) Start(serverAddr string) error {
 	return l.client.Start(serverAddr)
 }
 
+// ResetStateChangeNotifications clears any pending notifications
+func (l *StatefulLEDClient) ResetStateChangeNotifications() {
+	// Drain the channel
+	for {
+		select {
+		case <-l.stateChanged:
+			// Continue draining
+		default:
+			return
+		}
+	}
+}
+
 func (l *StatefulLEDClient) WaitForStateChange(timeout time.Duration) bool {
 	select {
 	case <-l.stateChanged:
@@ -194,7 +213,7 @@ func NewStatefulTemperatureSensor(name string) *StatefulTemperatureSensor {
 
 func NewStatefulTemperatureSensorWithFeature(name string, featureName string) *StatefulTemperatureSensor {
 	s := &StatefulTemperatureSensor{
-		client:      client.NewClient(name, client.NewTCPTransport()),
+		client:      newQuietClient(name, client.NewTCPTransport()),
 		temperature: 20.0, // Default room temperature
 		featureName: featureName,
 	}
@@ -301,12 +320,12 @@ type StatefulThermostat struct {
 
 func NewStatefulThermostat(name string) *StatefulThermostat {
 	t := &StatefulThermostat{
-		client:       client.NewClient(name, client.NewTCPTransport()),
+		client:       newQuietClient(name, client.NewTCPTransport()),
 		targetTemp:   22.0,
 		currentTemp:  20.0,
 		mode:         "auto",
 		status:       "idle",
-		stateChanged: make(chan struct{}, 10),
+		stateChanged: make(chan struct{}, 1),
 	}
 
 	// Add thermostat feature
@@ -375,6 +394,12 @@ func (t *StatefulThermostat) handleCommand(msg proto.Message) error {
 		select {
 		case t.stateChanged <- struct{}{}:
 		default:
+			// Channel full, drain one old notification and send new one
+			select {
+			case <-t.stateChanged:
+			default:
+			}
+			t.stateChanged <- struct{}{}
 		}
 	}
 
@@ -458,6 +483,19 @@ func (t *StatefulThermostat) SetCurrentTemperature(temp float64) {
 
 func (t *StatefulThermostat) Start(serverAddr string) error {
 	return t.client.Start(serverAddr)
+}
+
+// ResetStateChangeNotifications clears any pending notifications
+func (t *StatefulThermostat) ResetStateChangeNotifications() {
+	// Drain the channel
+	for {
+		select {
+		case <-t.stateChanged:
+			// Continue draining
+		default:
+			return
+		}
+	}
 }
 
 func (t *StatefulThermostat) WaitForStateChange(timeout time.Duration) bool {
