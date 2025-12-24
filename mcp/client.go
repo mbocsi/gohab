@@ -213,40 +213,32 @@ func (m *MCPClient) registerDeviceTools() {
 	)
 	m.mcpServer.AddTool(listDevicesTool, m.handleListDevices)
 
-	// Send device command tool
-	sendCommandTool := mcp.NewTool("send_device_command",
-		mcp.WithDescription("Send command to specific IoT device"),
-		mcp.WithString("device_id",
-			mcp.Required(),
-			mcp.Description("Target device ID"),
-		),
+	// Send command to topic tool
+	sendCommandTool := mcp.NewTool("send_command_to_topic",
+		mcp.WithDescription("Send command to the device that owns/provides a specific topic"),
 		mcp.WithString("topic",
 			mcp.Required(),
-			mcp.Description("Command topic/feature"),
+			mcp.Description("Target topic/feature - command will be routed to the device that owns this topic"),
 		),
 		mcp.WithObject("payload",
 			mcp.Required(),
 			mcp.Description("Command payload"),
 		),
 	)
-	m.mcpServer.AddTool(sendCommandTool, m.handleSendCommand)
+	m.mcpServer.AddTool(sendCommandTool, m.handleSendCommandToTopic)
 
-	// Query device tool
-	queryDeviceTool := mcp.NewTool("query_device",
-		mcp.WithDescription("Query device for current state"),
-		mcp.WithString("device_id",
-			mcp.Required(),
-			mcp.Description("Target device ID"),
-		),
+	// Query topic tool
+	queryTopicTool := mcp.NewTool("query_topic",
+		mcp.WithDescription("Query the device that owns/provides a specific topic for current state"),
 		mcp.WithString("topic",
 			mcp.Required(),
-			mcp.Description("Query topic/feature"),
+			mcp.Description("Target topic/feature - query will be routed to the device that owns this topic"),
 		),
 		mcp.WithNumber("timeout",
 			mcp.Description("Timeout in seconds"),
 		),
 	)
-	m.mcpServer.AddTool(queryDeviceTool, m.handleQueryDevice)
+	m.mcpServer.AddTool(queryTopicTool, m.handleQueryTopic)
 }
 
 // registerFeatureTools registers MCP tools for feature management
@@ -316,12 +308,7 @@ func (m *MCPClient) handleListDevices(ctx context.Context, request mcp.CallToolR
 	return mcp.NewToolResultText(string(resultBytes)), nil
 }
 
-func (m *MCPClient) handleSendCommand(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	deviceID, err := request.RequireString("device_id")
-	if err != nil {
-		return mcp.NewToolResultError("device_id is required and must be a string"), err
-	}
-
+func (m *MCPClient) handleSendCommandToTopic(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	topic, err := request.RequireString("topic")
 	if err != nil {
 		return mcp.NewToolResultError("topic is required and must be a string"), err
@@ -336,11 +323,11 @@ func (m *MCPClient) handleSendCommand(ctx context.Context, request mcp.CallToolR
 				return mcp.NewToolResultError(fmt.Sprintf("Failed to marshal payload: %v", err)), err
 			}
 
-			// Send command through our transport (like WebClient does)
+			// Send command through our transport - server will route to topic source
 			msg := proto.Message{
 				Type:      "command",
 				Topic:     topic,
-				Recipient: deviceID,
+				// No Recipient needed - server routes to topic source automatically
 				Payload:   payloadBytes,
 				Sender:    m.Id,
 				Timestamp: time.Now().Unix(),
@@ -350,19 +337,14 @@ func (m *MCPClient) handleSendCommand(ctx context.Context, request mcp.CallToolR
 				return mcp.NewToolResultError(fmt.Sprintf("Failed to send command: %v", err)), err
 			}
 
-			return mcp.NewToolResultText(fmt.Sprintf("Command sent to device %s on topic %s", deviceID, topic)), nil
+			return mcp.NewToolResultText(fmt.Sprintf("Command sent to topic %s (routed to topic source)", topic)), nil
 		}
 	}
 
 	return mcp.NewToolResultError("payload is required"), fmt.Errorf("payload not provided")
 }
 
-func (m *MCPClient) handleQueryDevice(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	deviceID, err := request.RequireString("device_id")
-	if err != nil {
-		return mcp.NewToolResultError("device_id is required and must be a string"), err
-	}
-
+func (m *MCPClient) handleQueryTopic(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	topic, err := request.RequireString("topic")
 	if err != nil {
 		return mcp.NewToolResultError("topic is required and must be a string"), err
@@ -371,11 +353,11 @@ func (m *MCPClient) handleQueryDevice(ctx context.Context, request mcp.CallToolR
 	timeout := request.GetFloat("timeout", 30.0)
 	correlationID := uuid.New().String()
 
-	// Send query through our transport (like WebClient does)
+	// Send query through our transport - server will route to topic source
 	msg := proto.Message{
 		Type:          "query",
 		Topic:         topic,
-		Recipient:     deviceID,
+		// No Recipient needed - server routes to topic source automatically
 		CorrelationID: correlationID,
 		Payload:       []byte(`{}`),
 		Sender:        m.Id,
@@ -392,7 +374,7 @@ func (m *MCPClient) handleQueryDevice(ctx context.Context, request mcp.CallToolR
 		return mcp.NewToolResultError(fmt.Sprintf("Query timeout or error: %v", err)), err
 	}
 
-	return mcp.NewToolResultText(fmt.Sprintf("Query response from device %s: %s", deviceID, string(response.Payload))), nil
+	return mcp.NewToolResultText(fmt.Sprintf("Query response from topic %s: %s", topic, string(response.Payload))), nil
 }
 
 func (m *MCPClient) handleBroadcastToFeature(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
