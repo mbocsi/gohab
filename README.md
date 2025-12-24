@@ -1,6 +1,6 @@
 # GoHab - Home Automation Server
 
-GoHab is a home automation server implementing a message-based architecture with device capabilities and pub/sub messaging for managing IoT devices and sensors.
+GoHab is a home automation server implementing a message-based architecture with device features and pub/sub messaging for managing IoT devices and sensors.
 
 ## Installation
 
@@ -40,11 +40,11 @@ Basic client setup:
 tcp := client.NewTCPTransport()
 c := client.NewClient("my-device", tcp)
 
-// Define a capability
-capability := proto.Capability{
+// Define a feature
+feature := proto.Feature{
     Name:        "temperature",
     Description: "Temperature sensor",
-    Methods: proto.CapabilityMethods{
+    Methods: proto.FeatureMethods{
         Data: proto.Method{
             Description: "Temperature readings",
             OutputSchema: map[string]proto.DataType{
@@ -55,8 +55,8 @@ capability := proto.Capability{
     },
 }
 
-// Add capability and start
-c.AddCapability(capability)
+// Add feature and start
+c.AddFeature(feature)
 c.Start("localhost:8888")
 ```
 
@@ -68,17 +68,17 @@ c.Start("localhost:8888")
 - `GohabServer` - Main server coordinating all components
 - `Broker` - Pub/sub message broker for topic-based communication
 - `DeviceRegistry` - Manages connected devices and their metadata
-- `Transport` - Abstraction for client connections (TCP, Web)
+- `Transport` - Abstraction for client connections (TCP, WebSocket)
 
 **Client:**
 - `Client` - Main client with capability management
 - `Transport` - Client transport abstraction (TCP implementation)
-- Device capabilities define supported actions/data
+- Device features define supported actions/data
 
 ### Message Protocol
 
 JSON-based messages with types:
-- `identify` - Device registration with capabilities
+- `identify` - Device registration with features
 - `command` - Control device actions
 - `query` - Request information from devices
 - `response` - Reply to queries
@@ -86,9 +86,9 @@ JSON-based messages with types:
 - `status` - Report device status
 - `subscribe` - Subscribe to topics
 
-### Capabilities System
+### Features System
 
-Devices declare capabilities during identification. Each capability can support four method types:
+Devices declare features during identification. Each feature can support four method types:
 
 - **Data** - Publish sensor readings or state updates
 - **Status** - Report device health/status
@@ -100,21 +100,34 @@ Devices declare capabilities during identification. Each capability can support 
 ### Creating a Client
 
 ```go
-// Create transport and client
+// Create TCP transport and client
 tcp := client.NewTCPTransport()
 client := client.NewClient("device-name", tcp)
 
-// Connect to server
+// Connect to server via TCP
 err := client.Start("localhost:8888")
 ```
 
-### Defining Capabilities
+### WebSocket Transport
+
+As an alternative to TCP, clients can also use WebSocket transport:
 
 ```go
-capability := proto.Capability{
+// Create WebSocket transport and client
+ws := client.NewWebSocketTransport()
+client := client.NewClient("device-name", ws)
+
+// Connect to server via WebSocket
+err := client.Start("ws://localhost:8889")
+```
+
+### Defining Features
+
+```go
+feature := proto.Feature{
     Name:        "led_strip",
     Description: "RGB LED strip controller",
-    Methods: proto.CapabilityMethods{
+    Methods: proto.FeatureMethods{
         Command: proto.Method{
             Description: "Set LED color and brightness",
             InputSchema: map[string]proto.DataType{
@@ -131,7 +144,7 @@ capability := proto.Capability{
     },
 }
 
-client.AddCapability(capability)
+client.AddFeature(feature)
 ```
 
 ### Handling Commands
@@ -156,7 +169,7 @@ client.RegisterCommandHandler("led_strip", func(msg proto.Message) error {
 ### Publishing Data
 
 ```go
-// Get data function for a capability
+// Get data function for a feature
 dataFn, err := client.GetDataFunction("temperature")
 if err != nil {
     panic(err)
@@ -285,11 +298,11 @@ func main() {
     tcp := client.NewTCPTransport()
     c := client.NewClient("temp-sensor-01", tcp)
     
-    // Define temperature capability
-    tempCapability := proto.Capability{
+    // Define temperature feature
+    tempFeature := proto.Feature{
         Name:        "temperature",
         Description: "Indoor temperature sensor",
-        Methods: proto.CapabilityMethods{
+        Methods: proto.FeatureMethods{
             Data: proto.Method{
                 Description: "Temperature readings",
                 OutputSchema: map[string]proto.DataType{
@@ -308,8 +321,8 @@ func main() {
         },
     }
     
-    // Add capability
-    c.AddCapability(tempCapability)
+    // Add feature
+    c.AddFeature(tempFeature)
     
     // Handle queries
     c.RegisterQueryHandler("temperature", func(msg proto.Message) (any, error) {
