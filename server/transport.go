@@ -19,6 +19,13 @@ type Transport interface {
 	SetDescription(description string)
 }
 
+// IPTransport extends Transport for IP-based transports that support mDNS
+type IPTransport interface {
+	Transport
+	StartMDNSAdvertisement(serviceName string) error
+	StopMDNSAdvertisement()
+}
+
 type TransportMetadata struct {
 	ID          string // Unique transport identifier
 	Name        string // Human-friendly name, e.g., "TCP Server", "WebSocket Gateway"

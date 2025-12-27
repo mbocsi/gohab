@@ -147,14 +147,21 @@ func (s *GohabServer) Start() error {
 }
 
 func (s *GohabServer) start(ctx context.Context) error {
-	// TODO: Add context to check if go routines exit for some reason
+	// Start all transports
 	for _, t := range s.transports {
 		go t.Start()
 	}
 
+	// Start mDNS advertisement for IP-based transports
+	s.startMDNSAdvertisement()
+
 	<-ctx.Done()
 	slog.Info("Shutting down transports and servers")
 
+	// Stop mDNS advertisement for IP-based transports
+	s.stopMDNSAdvertisement()
+
+	// Shutdown all transports
 	for _, t := range s.transports {
 		if err := t.Shutdown(); err != nil {
 			slog.Error("There was an error when shutting down transport server", "error", err.Error())
@@ -410,6 +417,30 @@ func (s *GohabServer) handleQuery(msg proto.Message) {
 		err := client.Send(msg)
 		if err != nil {
 			slog.Error("An error occured when sending response", "sender", msg.Sender, "recipient", client.Meta().Id)
+		}
+	}
+}
+
+func (s *GohabServer) startMDNSAdvertisement() {
+	serviceName := "gohab-server"
+	
+	for id, transport := range s.transports {
+		if ipTransport, ok := transport.(IPTransport); ok {
+			slog.Info("Starting mDNS advertisement", "transport_id", id)
+			if err := ipTransport.StartMDNSAdvertisement(serviceName); err != nil {
+				slog.Error("Failed to start mDNS advertisement", "transport_id", id, "error", err)
+			}
+		} else {
+			slog.Debug("Skipping mDNS for non-IP transport", "transport_id", id)
+		}
+	}
+}
+
+func (s *GohabServer) stopMDNSAdvertisement() {
+	for id, transport := range s.transports {
+		if ipTransport, ok := transport.(IPTransport); ok {
+			slog.Info("Stopping mDNS advertisement", "transport_id", id)
+			ipTransport.StopMDNSAdvertisement()
 		}
 	}
 }

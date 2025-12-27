@@ -4,10 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
+	"strconv"
 	"sync"
 
 	"github.com/gorilla/websocket"
+	"github.com/hashicorp/mdns"
 	"github.com/mbocsi/gohab/proto"
 )
 
@@ -31,6 +34,8 @@ type WSTransport struct {
 
 	maxClients int
 	connected  bool
+
+	mdnsServer *mdns.Server
 }
 
 func NewWSTransport(addr string) *WSTransport {
@@ -136,6 +141,7 @@ func (t *WSTransport) handleConnection(conn *websocket.Conn, remoteAddr string) 
 
 func (t *WSTransport) Shutdown() error {
 	slog.Info("Shutting down WebSocket server", "addr", t.Addr)
+	t.StopMDNSAdvertisement()
 	t.connected = false
 	if t.server != nil {
 		return t.server.Close()
@@ -181,4 +187,63 @@ func (t *WSTransport) SetMaxClients(n int) {
 
 func (t *WSTransport) SetDescription(description string) {
 	t.description = description
+}
+
+func (t *WSTransport) StartMDNSAdvertisement(serviceName string) error {
+	if serviceName == "" {
+		serviceName = "gohab-server"
+	}
+
+	// Extract port from address
+	_, portStr, err := net.SplitHostPort(t.Addr)
+	if err != nil {
+		return fmt.Errorf("failed to parse WebSocket address %s: %w", t.Addr, err)
+	}
+
+	port, err := strconv.Atoi(portStr)
+	if err != nil {
+		return fmt.Errorf("failed to parse WebSocket port %s: %w", portStr, err)
+	}
+
+	// Create mDNS service for WebSocket transport
+	service, err := mdns.NewMDNSService(
+		serviceName+"-ws",
+		"_gohab-ws._tcp",
+		"",
+		"",
+		port,
+		nil,
+		[]string{
+			"version=1.0",
+			"transport=websocket",
+			"protocol=gohab",
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create WebSocket mDNS service: %w", err)
+	}
+
+	// Start mDNS server
+	server, err := mdns.NewServer(&mdns.Config{Zone: service})
+	if err != nil {
+		return fmt.Errorf("failed to start WebSocket mDNS server: %w", err)
+	}
+
+	t.mdnsServer = server
+
+	slog.Info("WebSocket mDNS advertisement started",
+		"service_name", serviceName+"-ws",
+		"port", port,
+		"service_type", "_gohab-ws._tcp",
+	)
+
+	return nil
+}
+
+func (t *WSTransport) StopMDNSAdvertisement() {
+	if t.mdnsServer != nil {
+		t.mdnsServer.Shutdown()
+		t.mdnsServer = nil
+		slog.Info("WebSocket mDNS advertisement stopped")
+	}
 }

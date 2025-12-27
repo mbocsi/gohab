@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"strconv"
 	"sync"
 
+	"github.com/hashicorp/mdns"
 	"github.com/mbocsi/gohab/proto"
 )
 
@@ -25,6 +27,8 @@ type TCPTransport struct {
 
 	maxClients int
 	connected  bool
+
+	mdnsServer *mdns.Server
 }
 
 func NewTCPTransport(addr string) *TCPTransport {
@@ -117,6 +121,7 @@ func (t *TCPTransport) handleConnection(c net.Conn) {
 
 func (t *TCPTransport) Shutdown() error {
 	slog.Info("Shutting down tcp server", "addr", t.Addr)
+	t.StopMDNSAdvertisement()
 	if t.listener != nil {
 		return t.listener.Close()
 	}
@@ -161,4 +166,63 @@ func (t *TCPTransport) SetMaxClients(n int) {
 
 func (t *TCPTransport) SetDescription(description string) {
 	t.description = description
+}
+
+func (t *TCPTransport) StartMDNSAdvertisement(serviceName string) error {
+	if serviceName == "" {
+		serviceName = "gohab-server"
+	}
+
+	// Extract port from address
+	_, portStr, err := net.SplitHostPort(t.Addr)
+	if err != nil {
+		return fmt.Errorf("failed to parse TCP address %s: %w", t.Addr, err)
+	}
+
+	port, err := strconv.Atoi(portStr)
+	if err != nil {
+		return fmt.Errorf("failed to parse TCP port %s: %w", portStr, err)
+	}
+
+	// Create mDNS service for TCP transport
+	service, err := mdns.NewMDNSService(
+		serviceName,
+		"_gohab-tcp._tcp",
+		"",
+		"",
+		port,
+		nil,
+		[]string{
+			"version=1.0",
+			"transport=tcp",
+			"protocol=gohab",
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create TCP mDNS service: %w", err)
+	}
+
+	// Start mDNS server
+	server, err := mdns.NewServer(&mdns.Config{Zone: service})
+	if err != nil {
+		return fmt.Errorf("failed to start TCP mDNS server: %w", err)
+	}
+
+	t.mdnsServer = server
+
+	slog.Info("TCP mDNS advertisement started",
+		"service_name", serviceName,
+		"port", port,
+		"service_type", "_gohab-tcp._tcp",
+	)
+
+	return nil
+}
+
+func (t *TCPTransport) StopMDNSAdvertisement() {
+	if t.mdnsServer != nil {
+		t.mdnsServer.Shutdown()
+		t.mdnsServer = nil
+		slog.Info("TCP mDNS advertisement stopped")
+	}
 }

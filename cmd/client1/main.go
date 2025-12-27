@@ -60,7 +60,7 @@ func main() {
 		return DataPayload{Temperature: temp, Timestamp: time.Now().String()}, nil
 	})
 
-	go c.Start("localhost:8888") // Start in background
+	go c.Start("auto") // Auto-discover server via mDNS
 
 	ticker := time.NewTicker(5 * time.Second)
 	for {

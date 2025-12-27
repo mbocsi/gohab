@@ -87,6 +87,27 @@ func (c *Client) SetLogConfig(config *LogConfig) {
 func (c *Client) Start(addr string) error {
 	c.setupLogger()
 
+	// Handle auto-discovery
+	if addr == "auto" || addr == "tcp://auto" {
+		service, err := DiscoverTCPService(10 * time.Second)
+		if err != nil {
+			slog.Warn("Auto-discovery failed, falling back to localhost", "error", err)
+			addr = "localhost:8888"
+		} else {
+			addr = fmt.Sprintf("%s:%d", service.Address, service.Port)
+			slog.Info("Auto-discovered server", "address", addr)
+		}
+	} else if addr == "ws://auto" {
+		service, err := DiscoverWebSocketService(10 * time.Second)
+		if err != nil {
+			slog.Warn("WebSocket auto-discovery failed, falling back to localhost", "error", err)
+			addr = "ws://localhost:8889"
+		} else {
+			addr = fmt.Sprintf("ws://%s:%d", service.Address, service.Port)
+			slog.Info("Auto-discovered WebSocket server", "address", addr)
+		}
+	}
+
 reconnect:
 	err := c.transport.Connect(addr)
 	if err != nil {
